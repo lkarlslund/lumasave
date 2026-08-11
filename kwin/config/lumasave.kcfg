@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+  <kcfgfile name="kwinrc">
+    <parameter name="pluginName"/>
+  </kcfgfile>
+  <group name="Effect-$(pluginName)">
+    <entry name="Enabled" type="Bool">
+      <default>false</default>
+    </entry>
+    <entry name="MaxBacklightReductionPercent" type="Int">
+      <label>Maximum backlight reduction</label>
+      <whatsthis>The largest percentage LumaSave may subtract from the brightness selected by the user.</whatsthis>
+      <default>35</default>
+      <min>0</min>
+      <max>75</max>
+    </entry>
+    <entry name="IdleSeconds" type="Int">
+      <default>15</default>
+      <min>3</min>
+      <max>300</max>
+    </entry>
+    <entry name="BatteryOnly" type="Bool">
+      <default>true</default>
+    </entry>
+  </group>
+</kcfg>

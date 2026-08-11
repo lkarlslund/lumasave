@@ -1,0 +1,7 @@
+/target/
+/build/
+*.png
+!docs/*.png
+.idea/
+.vscode/
+

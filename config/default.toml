@@ -1,0 +1,12 @@
+idle_seconds = 15
+respect_idle_inhibitors = true
+max_idle_frames_per_second = 2.0
+battery_only = true
+black_preservation_threshold = 0.01
+# Fractional form used internally; 0.35 is shown as 35% in the KDE UI.
+max_backlight_reduction = 0.35
+max_rms_error = 0.035
+max_p99_error = 0.12
+hysteresis = 0.015
+transition_ms = 2500
+motion_guard = 0.35
