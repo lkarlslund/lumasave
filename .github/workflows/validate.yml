@@ -60,7 +60,10 @@ jobs:
         run: |
           now=$(date +%s)
           published_commit=$(git ls-remote origin refs/tags/nightly | cut -f1)
-          last=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/nightly" --jq .updated_at 2>/dev/null || true)
+          last=
+          if previous=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/nightly" --jq .updated_at 2>/dev/null); then
+            last=$previous
+          fi
           if [[ "$published_commit" == "$GITHUB_SHA" ]]; then
             echo publish=false >> "$GITHUB_OUTPUT"
           elif [[ -z "$last" ]] || (( now - $(date -d "$last" +%s) >= 14400 )); then
