@@ -24,16 +24,17 @@ jobs:
           pacman -Syu --noconfirm --needed git cmake extra-cmake-modules rust
           kwin libkscreen kcmutils qt6-base qt6-declarative plasma-workspace
           kdialog desktop-file-utils ripgrep python
-          github-cli
+          github-cli vulkan-headers
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Trust the container checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Validate
         run: ./scripts/validate-release.sh
       - name: Build exact-KWin Arch package
         shell: bash
         run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git archive --format=tar.gz --prefix=lumasave/ -o packaging/arch/lumasave-src.tar.gz HEAD
           cd packaging/arch
           cp PKGBUILD PKGBUILD.ci
