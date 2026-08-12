@@ -38,11 +38,13 @@ private:
     void redirectWindow(EffectWindow *window);
     void forgetWindow(EffectWindow *window);
     void setBacklightScale(float scale);
+    bool onBattery() const;
 
     std::unique_ptr<IdleDetector> m_idleDetector;
     std::unique_ptr<GLShader> m_shader;
     std::unordered_set<EffectWindow *> m_windows;
     bool m_enabled = false;
+    bool m_batteryOnly = true;
     bool m_analysisPending = false;
     bool m_active = false;
     int m_idleSeconds = 15;

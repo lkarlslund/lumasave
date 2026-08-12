@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "lumasaveeffect.h"
+#include "lumasave_core.h"
 
 #include "core/rendertarget.h"
 #include "core/backendoutput.h"
@@ -16,10 +17,13 @@
 #include <KConfigGroup>
 #include <KSharedConfig>
 #include <QImage>
+#include <QDir>
+#include <QFile>
 #include <QLoggingCategory>
 #include <QTimer>
 #include <algorithm>
 #include <cmath>
+#include <array>
 
 namespace KWin
 {
@@ -61,6 +65,7 @@ void LumaSaveEffect::readConfig()
     m_enabled = group.readEntry("Enabled", false);
     m_idleSeconds = std::clamp(group.readEntry("IdleSeconds", 15), 3, 300);
     m_maxReductionPercent = std::clamp(group.readEntry("MaxBacklightReductionPercent", 35), 0, 75);
+    m_batteryOnly = group.readEntry("BatteryOnly", true);
 }
 
 void LumaSaveEffect::reconfigure(ReconfigureFlags)
@@ -86,7 +91,9 @@ void LumaSaveEffect::armIdleDetector()
 
 void LumaSaveEffect::requestAnalysis()
 {
-    if (!m_enabled || m_maxReductionPercent == 0 || m_active) {
+    if (!m_enabled || m_maxReductionPercent == 0 || m_active
+        || (m_batteryOnly && !onBattery())
+        || effects->isEffectActive(QStringLiteral("screenshot"))) {
         qInfo() << "LumaSave idle ignored" << m_enabled << m_maxReductionPercent << m_active;
         return;
     }
@@ -123,17 +130,6 @@ void LumaSaveEffect::analyze(const RenderTarget &target, const RenderViewport &v
                 << (output ? output->brightnessDevice() : nullptr);
         return;
     }
-    m_output = output;
-    m_userBrightness = output->brightnessSetting();
-    connect(output, &BackendOutput::brightnessChanged, this, [this] {
-        // A hotkey or Plasma slider changes brightnessSetting(). Keep that as
-        // the user's new baseline and reapply only our invisible multiplier.
-        if (m_active && m_output
-            && !qFuzzyCompare(m_userBrightness, m_output->brightnessSetting())) {
-            m_userBrightness = m_output->brightnessSetting();
-            setBacklightScale(m_backlightScale);
-        }
-    });
     auto texture = GLTexture::allocate(GL_RGBA8, sampleSize);
     if (!texture) {
         qInfo() << "LumaSave sample texture allocation failed";
@@ -150,7 +146,18 @@ void LumaSaveEffect::analyze(const RenderTarget &target, const RenderViewport &v
         qInfo() << "LumaSave sample readback failed";
         return;
     }
-    double luminance = 0.0;
+    m_output = output;
+    m_userBrightness = output->brightnessSetting();
+    connect(output, &BackendOutput::brightnessChanged, this, [this] {
+        // Physical observations trigger the same signal. React only if the
+        // logical user setting actually changed, avoiding a feedback loop.
+        if (m_active && m_output
+            && !qFuzzyCompare(m_userBrightness, m_output->brightnessSetting())) {
+            m_userBrightness = m_output->brightnessSetting();
+            setBacklightScale(m_backlightScale);
+        }
+    });
+    std::array<std::uint64_t, 64> histogram{};
     for (int y = 0; y < image.height(); ++y) {
         for (int x = 0; x < image.width(); ++x) {
             const QRgb pixel = image.pixel(x, y);
@@ -158,14 +165,16 @@ void LumaSaveEffect::analyze(const RenderTarget &target, const RenderViewport &v
                 value /= 255.0;
                 return value <= 0.04045 ? value / 12.92 : std::pow((value + 0.055) / 1.055, 2.4);
             };
-            luminance += 0.2126 * linear(qRed(pixel)) + 0.7152 * linear(qGreen(pixel)) + 0.0722 * linear(qBlue(pixel));
+            const double luminance = 0.2126 * linear(qRed(pixel)) + 0.7152 * linear(qGreen(pixel)) + 0.0722 * linear(qBlue(pixel));
+            const std::size_t bin = std::min<std::size_t>(luminance * histogram.size(), histogram.size() - 1);
+            histogram[bin]++;
         }
     }
-    luminance /= image.width() * image.height();
-    // Dark scenes can safely use more of the user's selected maximum. White scenes use none.
-    const float contentFactor = std::clamp(1.0 - std::sqrt(luminance), 0.0, 1.0);
-    const float reduction = (m_maxReductionPercent / 100.0f) * contentFactor;
-    qInfo() << "LumaSave sampled mean" << luminance << "reduction" << reduction;
+    const float scale = lumasave_decide_backlight_scale(
+        histogram.data(), histogram.size(), m_maxReductionPercent / 100.0f,
+        0.01f, 0.035f, 0.12f);
+    const float reduction = 1.0f - scale;
+    qInfo() << "LumaSave Rust policy selected reduction" << reduction;
     if (reduction >= 0.01f) {
         activate(reduction);
     }
@@ -232,6 +241,23 @@ void LumaSaveEffect::setBacklightScale(float scale)
 {
     if (!m_output || !m_output->brightnessDevice()) return;
     m_output->brightnessDevice()->setBrightness(m_userBrightness * scale);
+}
+
+bool LumaSaveEffect::onBattery() const
+{
+    const QDir supplies(QStringLiteral("/sys/class/power_supply"));
+    for (const QString &name : supplies.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+        QFile type(supplies.filePath(name + QStringLiteral("/type")));
+        QFile online(supplies.filePath(name + QStringLiteral("/online")));
+        if (type.open(QIODevice::ReadOnly) && online.open(QIODevice::ReadOnly)) {
+            const QByteArray kind = type.readAll().trimmed();
+            if ((kind == "Mains" || kind == "USB" || kind == "USB_C")
+                && online.readAll().trimmed() == "1") {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 }
 

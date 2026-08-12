@@ -318,6 +318,41 @@ pub fn decide(histogram: &Histogram, config: &PolicyConfig) -> Decision {
     best
 }
 
+/// Stable C boundary used by compositor integrations. Invalid pointers,
+/// lengths, or settings conservatively disable reduction by returning 1.0.
+///
+/// # Safety
+///
+/// When non-null, `bins` must point to at least `bins_len` readable `u64`
+/// values and remain valid for the duration of this call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn lumasave_decide_backlight_scale(
+    bins: *const u64,
+    bins_len: usize,
+    max_reduction: f32,
+    black_threshold: f32,
+    max_rms_error: f32,
+    max_p99_error: f32,
+) -> f32 {
+    if bins.is_null() || bins_len != HISTOGRAM_BINS {
+        return 1.0;
+    }
+    // SAFETY: The caller promises `bins_len` readable u64 values. The exact
+    // required length is checked above and the data is copied immediately.
+    let source = unsafe { std::slice::from_raw_parts(bins, bins_len) };
+    let mut histogram = Histogram::default();
+    histogram.bins.copy_from_slice(source);
+    histogram.samples = histogram.bins.iter().sum();
+    let config = PolicyConfig {
+        max_backlight_reduction: max_reduction,
+        black_preservation_threshold: black_threshold,
+        max_rms_error,
+        max_p99_error,
+        ..PolicyConfig::default()
+    };
+    decide(&histogram, &config).backlight_scale
+}
+
 #[derive(Clone, Debug)]
 pub struct Smoother {
     current: f32,
@@ -433,6 +468,32 @@ mod tests {
             config
                 .set_max_backlight_reduction_percent(f32::NAN)
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn c_api_matches_native_policy_and_rejects_bad_input() {
+        let histogram = Histogram::from_linear_luminances(std::iter::repeat_n(0.02, 10_000));
+        let config = PolicyConfig::default();
+        let expected = decide(&histogram, &config).backlight_scale;
+        // SAFETY: the array is valid for exactly HISTOGRAM_BINS elements.
+        let actual = unsafe {
+            lumasave_decide_backlight_scale(
+                histogram.bins.as_ptr(),
+                HISTOGRAM_BINS,
+                config.max_backlight_reduction,
+                config.black_preservation_threshold,
+                config.max_rms_error,
+                config.max_p99_error,
+            )
+        };
+        assert_eq!(actual, expected);
+        // SAFETY: null is explicitly accepted as invalid input.
+        assert_eq!(
+            unsafe {
+                lumasave_decide_backlight_scale(std::ptr::null(), 0, 0.35, 0.01, 0.035, 0.12)
+            },
+            1.0
         );
     }
 

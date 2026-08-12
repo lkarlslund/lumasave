@@ -9,6 +9,10 @@ an offline simulator, and compositor integrations. The first compositor target
 is KDE Plasma's KWin because KWin already owns both the output color pipeline
 and the physical brightness device.
 
+The native KWin plugin is intentionally thin: it performs the one-shot GPU
+downsample and applies the GLSL curve, while the 64-bin histogram decision is
+made by the same Rust core used by the simulator.
+
 ## Status
 
 Experimental. The simulator and native KWin effect build successfully on Plasma
@@ -63,6 +67,8 @@ cannot simulate the physical backlight itself.
 - Disable for HDR, color calibration, screen capture and unsupported outputs.
 - Rate-limit changes and use hysteresis to prevent visible pumping.
 - Keep all desktop image data inside the compositor; export histograms only.
+- Use a self-contained SDR sRGB/linear-light shader; do not depend on private
+  color-management uniforms that KWin does not populate for external effects.
 
 ## License
 

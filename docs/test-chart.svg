@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1200" viewBox="0 0 1920 1200">
+  <rect width="1920" height="1200" fill="#000"/>
+  <defs>
+    <linearGradient id="gray"><stop stop-color="#000"/><stop offset="1" stop-color="#fff"/></linearGradient>
+  </defs>
+  <rect x="0" y="0" width="1920" height="500" fill="url(#gray)"/>
+  <rect x="0" y="500" width="240" height="350" fill="#000000"/>
+  <rect x="240" y="500" width="240" height="350" fill="#010101"/>
+  <rect x="480" y="500" width="240" height="350" fill="#050505"/>
+  <rect x="720" y="500" width="240" height="350" fill="#101010"/>
+  <rect x="960" y="500" width="240" height="350" fill="#404040"/>
+  <rect x="1200" y="500" width="240" height="350" fill="#808080"/>
+  <rect x="1440" y="500" width="240" height="350" fill="#c0c0c0"/>
+  <rect x="1680" y="500" width="240" height="350" fill="#ffffff"/>
+  <rect x="0" y="850" width="320" height="350" fill="#f00"/>
+  <rect x="320" y="850" width="320" height="350" fill="#0f0"/>
+  <rect x="640" y="850" width="320" height="350" fill="#00f"/>
+  <rect x="960" y="850" width="320" height="350" fill="#0ff"/>
+  <rect x="1280" y="850" width="320" height="350" fill="#f0f"/>
+  <rect x="1600" y="850" width="320" height="350" fill="#ff0"/>
+</svg>
