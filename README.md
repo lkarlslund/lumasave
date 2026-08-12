@@ -1,114 +1,119 @@
 # LumaSave
 
-LumaSave explores content-adaptive backlight power saving for Linux desktops.
-It lowers an LCD's physical backlight while applying a synchronized luminance
-curve intended to retain useful visual contrast.
+**Use less display power without making your desktop feel dim.**
 
-The project is deliberately split into a display-independent Rust policy core,
-an offline simulator, and compositor integrations. The first compositor target
-is KDE Plasma's KWin because KWin already owns both the output color pipeline
-and the physical brightness device.
+The screen is often one of a laptop's largest power consumers. Turning down its
+backlight saves energy, but it also makes text, photographs, and application
+interfaces harder to see. LumaSave lowers the physical backlight and compensates
+the picture at the same time, preserving useful contrast and readability.
 
-The native KWin plugin is intentionally thin: it performs a small GPU
-downsample and applies the GLSL curve, while the 64-bin histogram decision is
-made by the same Rust core used by the simulator.
+The result is a display that uses a lower backlight level while still looking
+closer to the brightness you chose.
 
-## Status
+## What do I gain?
 
-Experimental. The simulator and native KWin effect build successfully on Plasma
-6.7. The effect remains conservative by default while its visual quality and
-power measurements are validated.
+- **Lower display power use.** LumaSave reduces the physical LCD backlight, not
+  merely the colors drawn on screen.
+- **A readable image.** A content-aware correction curve preserves detail while
+  exact black stays black.
+- **More useful battery time.** Saving display power can extend runtime on a
+  laptop. The exact gain depends on the panel, brightness, workload, and battery.
+- **No new brightness workflow.** Plasma's brightness slider and keyboard keys
+  remain your normal brightness controls. LumaSave works underneath them.
+- **Automatic operation.** It can work continuously, wait until you stop using
+  the computer, or remain off.
+- **Visible results.** The Plasma widget shows requested brightness, effective
+  backlight, current reduction, and accumulated saved backlight-hours.
 
-## User-local installation
+For example, with brightness set to 60% and LumaSave reducing the backlight by
+25%, the panel runs at about 45% while the image is adjusted to retain readable
+detail.
+
+## How it feels to use
+
+LumaSave lives in **System Settings → Display & Monitor → LumaSave** and provides
+three simple modes:
+
+- **On** continuously adapts to what is on screen. Changes are gradual, and
+  moving the mouse or typing does not alter the selected reduction.
+- **After inactivity** waits until you step away, then restores normal operation
+  immediately when you return.
+- **Off** leaves the display completely untouched.
+
+The optional **LumaSave Status** panel widget provides quick mode buttons,
+maximum reduction, battery-only operation, current status, and a shortcut to
+the complete settings page.
+
+## Designed not to get in your way
+
+- LumaSave never replaces or permanently changes your chosen brightness.
+- Backlight and image compensation move together with a smooth transition.
+- Video playback and presentations that keep the screen awake inhibit LumaSave.
+- Calibration lets you tune compensation for your particular laptop panel at
+  25%, 50%, and 100% brightness.
+- All screen analysis stays inside KWin. LumaSave does not save or upload screen
+  images.
+- Disabling or unloading it restores the normal image and backlight.
+
+## Understanding “saved backlight-hours”
+
+The widget records how much full-scale backlight exposure LumaSave has avoided:
+
+`requested brightness × LumaSave reduction × time`
+
+One hour at 60% brightness with a 25% reduction therefore saves 0.15
+backlight-hours. This correctly accounts for both requested and effective
+brightness. It is not presented as watt-hours because LCD panels have different
+power curves; measuring actual battery energy requires hardware-specific data.
+
+## Install for one user
+
+LumaSave currently targets KDE Plasma 6.7 on Wayland. It is experimental and
+should be tested conservatively on each panel.
 
 ```sh
+git clone https://github.com/lkarlslund/lumasave.git
+cd lumasave
 ./install.sh
 ```
 
-No system files or administrator privileges are needed. Log out and back in
-once after the first installation so KWin inherits the local Qt plugin path.
-Later rebuilds replace the plugin under `~/.local`.
+The installation is entirely user-local and does not require `sudo`. Log out
+and back in once after installation, then open **System Settings → Display &
+Monitor → LumaSave**. Add **LumaSave Status** through Plasma's normal **Add
+Widgets…** interface if you want panel controls and statistics.
 
-This installer is fully rootless, but it compiles from source on the target
-machine because native KWin plugins do not have a stable cross-version ABI.
-After a Plasma/KWin upgrade, run `~/.local/bin/lumasave-check`; if it reports a
-version mismatch, rerun `./install.sh` before enabling the effect.
+LumaSave builds against the installed KWin because native KWin plug-ins do not
+have a stable cross-version ABI. After upgrading Plasma/KWin, run:
 
-After installation, open **System Settings → Display & Monitor → LumaSave**.
-The page offers **Off**, **On**, and **After inactivity** modes, controls the
-sampling/idle interval and maximum backlight reduction, and launches the panel
-calibration UI. Calibration starts paused in
-normal mode and only changes the full desktop when the user explicitly selects
-mode B; its preview reduction is capped at 30% for safety.
+```sh
+~/.local/bin/lumasave-check
+```
 
-The installation also provides an optional **LumaSave Status** Plasma widget.
-Add it through Plasma's normal *Add Widgets…* interface. It reports the current
-backlight reduction, logical and effective brightness, and time-weighted daily
-and all-time reduction exposure. These figures intentionally do not claim a
-watt or battery-life saving: panel efficiency is hardware-specific. Pixels at
-the output edges are excluded from analysis so panel indicators cannot feed
-back into the selected reduction.
+If it reports a mismatch, rerun `./install.sh` and log in again.
 
-Saved backlight-hours are full-scale exposure: requested brightness × relative
-LumaSave reduction × time. Thus one hour at 60% brightness with a 25% LumaSave
-reduction records 0.15 saved backlight-hours. This is a physical backlight-level
-metric, not an energy estimate because panel power curves differ by hardware.
-
-To remove it:
+To remove LumaSave:
 
 ```sh
 ./scripts/uninstall-user.sh
 ```
 
-## Arch Linux package
+## Arch Linux
 
-An Arch `PKGBUILD` is provided in `packaging/arch`. It builds from source
-against the installed KWin and produces a normal system package. Release tags
-use the form `v0.1.0`. Native binary plugin artifacts are intentionally not
-published for use across different KWin releases.
+An Arch [`PKGBUILD`](packaging/arch/PKGBUILD) is included. It builds LumaSave
+against the KWin version installed on the target system and packages the effect,
+System Settings module, calibration tool, and Plasma widget together.
 
-## Simulator
+## Project status
 
-```sh
-cargo run --release -- analyze screenshot.png \
-  --config config/default.toml \
-  --max-reduction 35 \
-  --output compensated.png
-```
+LumaSave is experimental software. The native effect currently targets KDE
+Plasma 6.7, an internal SDR LCD panel, and a Wayland session. HDR, unsupported
+outputs, screenshots, calibration, and relevant power-management inhibitors are
+handled conservatively.
 
-`--max-reduction` is a user-facing percentage (0–75). It overrides the
-configuration for that run. The KDE settings page uses the same percentage
-scale and defaults to 35%.
-
-The output image contains the pixel compensation that should be displayed while
-the physical backlight is multiplied by the reported scale. A normal screenshot
-cannot simulate the physical backlight itself.
-
-## Safety principles
-
-- In **After inactivity** mode, take no samples during active use and sample
-  only after the configured input-idle delay.
-- In **On** mode, periodically downsample in compositor memory, with hysteresis
-  and an interval that backs off when the decision is stable.
-- When sampling while compensation is active, invert the exact calibrated
-  shader curve before building the policy histogram. Decisions therefore use
-  original scene luminance and cannot feed back on compensated output.
-- Transition the shader and physical backlight together over a short eased
-  animation so content-driven changes do not appear as abrupt dimming.
-- Respect KWin and PowerDevil idle inhibitors, so video playback, presentations
-  and similar keep-awake workloads never activate LumaSave.
-- Reject an apparently idle desktop that is still repainting continuously.
-- On resumed input, deactivate immediately without sampling the screen.
-- Never override the user's brightness setting; apply a reversible multiplier.
-- Adjust the physical KWin brightness device directly and silently. Plasma's
-  slider and hotkeys remain the baseline even when changed while active.
-- Restore an uncompensated image before returning the backlight to its baseline.
-- Disable for HDR, color calibration, screen capture and unsupported outputs.
-- Rate-limit changes and use hysteresis to prevent visible pumping.
-- Keep all desktop image data inside the compositor; export histograms only.
-- Use a self-contained SDR sRGB/linear-light shader; do not depend on private
-  color-management uniforms that KWin does not populate for external effects.
+The project consists of a native KWin effect, a display-independent Rust policy
+core, a GPU compensation shader, calibration tools, and an offline simulator.
+Developer and architecture details live in [`docs`](docs).
 
 ## License
 
-MIT
+[MIT](LICENSE)
