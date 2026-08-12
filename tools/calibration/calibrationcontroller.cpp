@@ -2,20 +2,20 @@
 #include "calibrationcontroller.h"
 
 #include <QDBusInterface>
-#include <QDBusReply>
 #include <QCoreApplication>
+#include <QDir>
+#include <QProcessEnvironment>
+#include <QSettings>
 #include <algorithm>
 #include <cmath>
 
-static constexpr auto service = "org.kde.org_kde_powerdevil";
-static constexpr auto path = "/org/kde/ScreenBrightness/display0";
-static constexpr auto interface = "org.kde.ScreenBrightness.Display";
-
 CalibrationController::CalibrationController(QObject *parent)
     : QObject(parent)
-    , m_baseline(readProperty("Brightness"))
-    , m_maximum(readProperty("MaxBrightness"))
+    , m_effectName(QProcessEnvironment::systemEnvironment().value(QStringLiteral("LUMASAVE_CALIBRATION_EFFECT")))
 {
+    writeSetting(QStringLiteral("CalibrationMode"), true);
+    writeSetting(QStringLiteral("CalibrationActive"), false);
+    reconfigure();
 }
 
 CalibrationController::~CalibrationController()
@@ -23,26 +23,34 @@ CalibrationController::~CalibrationController()
     restore();
 }
 
-int CalibrationController::readProperty(const char *name) const
+void CalibrationController::writeSetting(const QString &key, const QVariant &value)
 {
-    QDBusInterface display(QString::fromLatin1(service), QString::fromLatin1(path), QString::fromLatin1(interface));
-    const QVariant value = display.property(name);
-    return value.isValid() ? value.toInt() : -1;
+    QSettings settings(QDir::homePath() + QStringLiteral("/.config/kwinrc"), QSettings::IniFormat);
+    settings.beginGroup(QStringLiteral("Effect-lumasave"));
+    settings.setValue(key, value);
+    settings.sync();
 }
 
-void CalibrationController::setBrightness(int value)
+void CalibrationController::reconfigure()
 {
-    QDBusInterface display(QString::fromLatin1(service), QString::fromLatin1(path), QString::fromLatin1(interface));
-    // SuppressIndicator keeps calibration changes out of Plasma's OSD.
-    display.call(QStringLiteral("SetBrightnessWithContext"),
-                 std::clamp(value, 0, m_maximum), uint(1), QStringLiteral("lumasave-calibration"));
+    if (m_effectName.isEmpty()) return;
+    QDBusInterface effects(QStringLiteral("org.kde.KWin"), QStringLiteral("/Effects"), QStringLiteral("org.kde.kwin.Effects"));
+    effects.call(QStringLiteral("reconfigureEffect"), m_effectName);
 }
 
-void CalibrationController::setCompensated(bool enabled, double reduction)
+void CalibrationController::setCompensated(bool enabled, double reduction,
+                                           int perceivedBrightness, int shadowDetail,
+                                           int highlightProtection, int colorIntensity)
 {
     if (!available()) return;
     reduction = std::clamp(reduction, 0.0, 0.60);
-    setBrightness(enabled ? int(std::lround(m_baseline * (1.0 - reduction))) : m_baseline);
+    writeSetting(QStringLiteral("CalibrationActive"), enabled);
+    writeSetting(QStringLiteral("CalibrationReductionPercent"), int(std::lround(reduction * 100.0)));
+    writeSetting(QStringLiteral("CalibrationPerceivedBrightnessPercent"), std::clamp(perceivedBrightness, 80, 120));
+    writeSetting(QStringLiteral("CalibrationShadowDetailPercent"), std::clamp(shadowDetail, 0, 100));
+    writeSetting(QStringLiteral("CalibrationHighlightProtectionPercent"), std::clamp(highlightProtection, 0, 100));
+    writeSetting(QStringLiteral("CalibrationColorIntensityPercent"), std::clamp(colorIntensity, 80, 120));
+    reconfigure();
     if (m_compensated != enabled) {
         m_compensated = enabled;
         Q_EMIT compensatedChanged();
@@ -51,7 +59,10 @@ void CalibrationController::setCompensated(bool enabled, double reduction)
 
 void CalibrationController::restore()
 {
-    if (available()) setBrightness(m_baseline);
+    if (available()) {
+        writeSetting(QStringLiteral("CalibrationActive"), false);
+        reconfigure();
+    }
     if (m_compensated) {
         m_compensated = false;
         Q_EMIT compensatedChanged();

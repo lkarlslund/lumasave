@@ -7,20 +7,34 @@ cmake -S "$project_dir/kwin" -B "$project_dir/build-kwin" \
     -DCMAKE_INSTALL_PREFIX="$HOME/.local" \
     -DKDE_INSTALL_PLUGINDIR=lib/qt6/plugins
 cmake --build "$project_dir/build-kwin" --target lumasave-calibrate --parallel
-brightness_service="org.kde.org_kde_powerdevil"
-brightness_path="/org/kde/ScreenBrightness/display0"
-brightness_interface="org.kde.ScreenBrightness.Display"
-baseline_brightness=$(qdbus6 "$brightness_service" "$brightness_path" \
-    org.freedesktop.DBus.Properties.Get "$brightness_interface" Brightness)
+effect_name="lumasave_calibration_live"
+effect_dir="$HOME/.local/lib/qt6/plugins/kwin/effects/plugins"
+effect_file="$effect_dir/$effect_name.so"
+cleanup() {
+    trap - EXIT INT TERM
+    kwriteconfig6 --file kwinrc --group Effect-lumasave --key CalibrationActive false
+    qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect "$effect_name" >/dev/null 2>&1 || true
+    qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect "$effect_name" >/dev/null 2>&1 || true
+    for key in CalibrationMode CalibrationActive CalibrationReductionPercent \
+        CalibrationPerceivedBrightnessPercent CalibrationShadowDetailPercent \
+        CalibrationHighlightProtectionPercent CalibrationColorIntensityPercent; do
+        kwriteconfig6 --file kwinrc --group Effect-lumasave --key "$key" --delete ''
+    done
+    if [ -f "$effect_file" ]; then
+        gio trash "$effect_file" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT INT TERM
+mkdir -p "$effect_dir"
+cp "$project_dir/build-kwin/bin/kwin/effects/plugins/lumasave.so" "$effect_file"
+kwriteconfig6 --file kwinrc --group Effect-lumasave --key CalibrationMode true
+kwriteconfig6 --file kwinrc --group Effect-lumasave --key CalibrationActive false
+qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect "$effect_name" >/dev/null
 set +e
-"$project_dir/build-kwin/bin/lumasave-calibrate"
+LUMASAVE_CALIBRATION_EFFECT="$effect_name" "$project_dir/build-kwin/bin/lumasave-calibrate"
 calibration_status=$?
 set -e
-# A second restoration layer covers abnormal application exits where the C++
-# destructor could not run. Flag 1 suppresses Plasma's brightness indicator.
-qdbus6 "$brightness_service" "$brightness_path" \
-    "$brightness_interface.SetBrightnessWithContext" \
-    "$baseline_brightness" 1 lumasave-calibration-guard >/dev/null
+cleanup
 if [ "$calibration_status" -eq 2 ]; then
     echo "Calibration canceled; existing LumaSave settings were not changed."
     exit 0

@@ -39,12 +39,17 @@ private:
     void forgetWindow(EffectWindow *window);
     void setBacklightScale(float scale);
     bool onBattery() const;
+    bool attachInternalOutput();
+    void applyCalibrationMode();
 
     std::unique_ptr<IdleDetector> m_idleDetector;
     std::unique_ptr<GLShader> m_shader;
     std::unordered_set<EffectWindow *> m_windows;
     bool m_enabled = false;
     bool m_batteryOnly = true;
+    bool m_calibrationMode = false;
+    bool m_calibrationActive = false;
+    int m_calibrationReductionPercent = 10;
     bool m_analysisPending = false;
     bool m_active = false;
     int m_idleSeconds = 15;

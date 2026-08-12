@@ -49,29 +49,12 @@ ApplicationWindow {
         return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)
     }
     function shownChannel(encoded, luminance) {
-        if (!compensated || luminance === 0) return Math.round(encoded * 255)
-        let black = 0.002 + (1 - shadowDetail.value / 100) * 0.028
-        let shoulder = scale / Math.max(0.001, 1 - scale)
-        let mapped = luminance * (1 + shoulder) / (luminance + shoulder)
-        let t = Math.max(0, Math.min(1, (luminance - black) / Math.max(0.001, black)))
-        t = t * t * (3 - 2 * t)
-        let protection = highlightProtection.value / 100
-        let target = luminance + (mapped - luminance) * t * (1 - 0.35 * protection)
-        target *= perceivedBrightness.value / 100
-        let linear = srgbToLinear(encoded) * target / Math.max(luminance, 0.000001)
-        // The controller applies the physical scale; the chart supplies only
-        // the corresponding pixel compensation.
-        return Math.round(linearToSrgb(linear) * 255)
+        return Math.round(encoded * 255)
     }
     function patchColor(r, g, b) {
         let lr = srgbToLinear(r), lg = srgbToLinear(g), lb = srgbToLinear(b)
         let y = 0.2126 * lr + 0.7152 * lg + 0.0722 * lb
         let rr = shownChannel(r, y), gg = shownChannel(g, y), bb = shownChannel(b, y)
-        if (compensated) {
-            let gray = Math.round(0.2126 * rr + 0.7152 * gg + 0.0722 * bb)
-            let sat = colorIntensity.value / 100
-            rr = gray + (rr - gray) * sat; gg = gray + (gg - gray) * sat; bb = gray + (bb - gray) * sat
-        }
         return Qt.rgba(Math.max(0, Math.min(255, rr)) / 255,
                        Math.max(0, Math.min(255, gg)) / 255,
                        Math.max(0, Math.min(255, bb)) / 255, 1)
@@ -82,7 +65,11 @@ ApplicationWindow {
         maximumReduction.value = 10; interval.value = 1500
     }
     function setMode(enabled) {
-        calibrationBackend.setCompensated(enabled, reduction)
+        calibrationBackend.setCompensated(enabled, reduction,
+                                          Math.round(perceivedBrightness.value),
+                                          Math.round(shadowDetail.value),
+                                          Math.round(highlightProtection.value),
+                                          Math.round(colorIntensity.value))
     }
 
     Timer {
@@ -112,20 +99,34 @@ ApplicationWindow {
                 color: "#c8c8c8"; wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
 
-            GridLayout {
-                columns: 4; rowSpacing: 0; columnSpacing: 0
+            TabBar {
+                id: sceneTabs
+                Layout.fillWidth: true
+                TabButton { text: "Photographs" }
+                TabButton { text: "Technical chart" }
+            }
+            StackLayout {
+                currentIndex: sceneTabs.currentIndex
                 Layout.fillWidth: true; Layout.fillHeight: true
-                Repeater {
-                    model: [
-                        [0,0,0], [.004,.004,.004], [.02,.02,.02], [.063,.063,.063],
-                        [.25,.25,.25], [.5,.5,.5], [.75,.75,.75], [1,1,1],
-                        [1,0,0], [0,1,0], [0,0,1], [1,1,0],
-                        [0,1,1], [1,0,1], [.15,.08,.02], [.08,.16,.3]
-                    ]
-                    Rectangle {
-                        required property var modelData
-                        Layout.fillWidth: true; Layout.fillHeight: true
-                        color: root.patchColor(modelData[0], modelData[1], modelData[2])
+                Image {
+                    source: "qrc:/calibration/assets/reference-scenes.png"
+                    fillMode: Image.PreserveAspectFit
+                    mipmap: true
+                }
+                GridLayout {
+                    columns: 4; rowSpacing: 0; columnSpacing: 0
+                    Repeater {
+                        model: [
+                            [0,0,0], [.004,.004,.004], [.02,.02,.02], [.063,.063,.063],
+                            [.25,.25,.25], [.5,.5,.5], [.75,.75,.75], [1,1,1],
+                            [1,0,0], [0,1,0], [0,0,1], [1,1,0],
+                            [0,1,1], [1,0,1], [.15,.08,.02], [.08,.16,.3]
+                        ]
+                        Rectangle {
+                            required property var modelData
+                            Layout.fillWidth: true; Layout.fillHeight: true
+                            color: root.patchColor(modelData[0], modelData[1], modelData[2])
+                        }
                     }
                 }
             }
@@ -150,17 +151,17 @@ ApplicationWindow {
                 Label { text: "Calibration controls"; font.pixelSize: 20; font.bold: true }
 
                 Label { text: "Perceived brightness  " + Math.round(perceivedBrightness.value) + "%" }
-                Slider { id: perceivedBrightness; from: 80; to: 120; stepSize: 1; value: 100; Layout.fillWidth: true }
+                Slider { id: perceivedBrightness; from: 80; to: 120; stepSize: 1; value: 100; Layout.fillWidth: true; onMoved: if (root.compensated) root.setMode(true) }
                 Label { text: "Shadow detail  " + Math.round(shadowDetail.value) + "%" }
-                Slider { id: shadowDetail; from: 0; to: 100; stepSize: 1; value: 50; Layout.fillWidth: true }
+                Slider { id: shadowDetail; from: 0; to: 100; stepSize: 1; value: 50; Layout.fillWidth: true; onMoved: if (root.compensated) root.setMode(true) }
                 Label { text: "Highlight protection  " + Math.round(highlightProtection.value) + "%" }
-                Slider { id: highlightProtection; from: 0; to: 100; stepSize: 1; value: 70; Layout.fillWidth: true }
+                Slider { id: highlightProtection; from: 0; to: 100; stepSize: 1; value: 70; Layout.fillWidth: true; onMoved: if (root.compensated) root.setMode(true) }
                 Label { text: "Color intensity  " + Math.round(colorIntensity.value) + "%" }
-                Slider { id: colorIntensity; from: 80; to: 120; stepSize: 1; value: 100; Layout.fillWidth: true }
+                Slider { id: colorIntensity; from: 80; to: 120; stepSize: 1; value: 100; Layout.fillWidth: true; onMoved: if (root.compensated) root.setMode(true) }
                 Label { text: "Maximum reduction  " + Math.round(maximumReduction.value) + "%" }
                 Slider {
                     id: maximumReduction; from: 0; to: 60; stepSize: 1; value: 10; Layout.fillWidth: true
-                    onMoved: if (root.compensated) calibrationBackend.setCompensated(true, root.reduction)
+                    onMoved: if (root.compensated) root.setMode(true)
                 }
                 Label { text: "A/B interval  " + (interval.value / 1000).toFixed(1) + " s" }
                 Slider { id: interval; from: 500; to: 3000; stepSize: 100; value: 1500; Layout.fillWidth: true }

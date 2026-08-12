@@ -1,1 +1,4 @@
-<RCC><qresource prefix="/calibration"><file>main.qml</file></qresource></RCC>
+<RCC><qresource prefix="/calibration">
+  <file>main.qml</file>
+  <file>assets/reference-scenes.png</file>
+</qresource></RCC>

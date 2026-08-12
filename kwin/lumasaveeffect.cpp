@@ -37,6 +37,9 @@ LumaSaveEffect::LumaSaveEffect()
     connect(effects, &EffectsHandler::windowDeleted, this, &LumaSaveEffect::forgetWindow);
     readConfig();
     armIdleDetector();
+    if (m_calibrationMode) {
+        QTimer::singleShot(0, this, &LumaSaveEffect::applyCalibrationMode);
+    }
 }
 
 LumaSaveEffect::~LumaSaveEffect()
@@ -70,6 +73,15 @@ void LumaSaveEffect::readConfig()
     m_shadowDetail = std::clamp(group.readEntry("ShadowDetailPercent", 50) / 100.0f, 0.0f, 1.0f);
     m_highlightProtection = std::clamp(group.readEntry("HighlightProtectionPercent", 70) / 100.0f, 0.0f, 1.0f);
     m_colorIntensity = std::clamp(group.readEntry("ColorIntensityPercent", 100) / 100.0f, 0.8f, 1.2f);
+    m_calibrationMode = group.readEntry("CalibrationMode", false);
+    m_calibrationActive = group.readEntry("CalibrationActive", false);
+    m_calibrationReductionPercent = std::clamp(group.readEntry("CalibrationReductionPercent", 10), 0, 60);
+    if (m_calibrationMode) {
+        m_perceivedBrightness = std::clamp(group.readEntry("CalibrationPerceivedBrightnessPercent", 100) / 100.0f, 0.8f, 1.2f);
+        m_shadowDetail = std::clamp(group.readEntry("CalibrationShadowDetailPercent", 50) / 100.0f, 0.0f, 1.0f);
+        m_highlightProtection = std::clamp(group.readEntry("CalibrationHighlightProtectionPercent", 70) / 100.0f, 0.0f, 1.0f);
+        m_colorIntensity = std::clamp(group.readEntry("CalibrationColorIntensityPercent", 100) / 100.0f, 0.8f, 1.2f);
+    }
 }
 
 void LumaSaveEffect::reconfigure(ReconfigureFlags)
@@ -77,6 +89,11 @@ void LumaSaveEffect::reconfigure(ReconfigureFlags)
     const int previousMaximum = m_maxReductionPercent;
     readConfig();
     armIdleDetector();
+    if (m_calibrationMode) {
+        deactivate();
+        applyCalibrationMode();
+        return;
+    }
     if (!m_enabled || m_maxReductionPercent == 0) {
         deactivate();
     } else if (m_active && previousMaximum != m_maxReductionPercent) {
@@ -181,6 +198,36 @@ void LumaSaveEffect::analyze(const RenderTarget &target, const RenderViewport &v
     qInfo() << "LumaSave Rust policy selected reduction" << reduction;
     if (reduction >= 0.01f) {
         activate(reduction);
+    }
+}
+
+bool LumaSaveEffect::attachInternalOutput()
+{
+    BackendOutput *output = nullptr;
+    for (BackendOutput *candidate : kwinApp()->outputBackend()->outputs()) {
+        if (candidate->isInternal() && candidate->brightnessDevice()) {
+            output = candidate;
+            break;
+        }
+    }
+    if (!output) return false;
+    m_output = output;
+    m_userBrightness = output->brightnessSetting();
+    connect(output, &BackendOutput::brightnessChanged, this, [this] {
+        if (m_active && m_output
+            && !qFuzzyCompare(m_userBrightness, m_output->brightnessSetting())) {
+            m_userBrightness = m_output->brightnessSetting();
+            setBacklightScale(m_backlightScale);
+        }
+    });
+    return true;
+}
+
+void LumaSaveEffect::applyCalibrationMode()
+{
+    if (m_calibrationMode && m_calibrationActive && m_calibrationReductionPercent > 0
+        && attachInternalOutput()) {
+        activate(m_calibrationReductionPercent / 100.0f);
     }
 }
 
