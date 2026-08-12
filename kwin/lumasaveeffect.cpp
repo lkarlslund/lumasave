@@ -58,6 +58,11 @@ LumaSaveEffect::LumaSaveEffect()
     });
     m_statisticsTimer.start();
     connect(&m_sampleTimer, &QTimer::timeout, this, &LumaSaveEffect::periodicAnalysis);
+    m_contentChangeTimer.setSingleShot(true);
+    m_contentChangeTimer.setInterval(700);
+    connect(&m_contentChangeTimer, &QTimer::timeout, this, &LumaSaveEffect::periodicAnalysis);
+    connect(effects, &EffectsHandler::windowActivated, this, &LumaSaveEffect::scheduleContentChangeAnalysis);
+    connect(effects, &EffectsHandler::desktopChanged, this, &LumaSaveEffect::scheduleContentChangeAnalysis);
     m_transitionTimer.setInterval(16);
     connect(&m_transitionTimer, &QTimer::timeout, this, &LumaSaveEffect::advanceTransition);
     for (BackendOutput *output : kwinApp()->outputBackend()->outputs()) {
@@ -104,7 +109,7 @@ void LumaSaveEffect::readConfig()
     m_operatingMode = group.readEntry("OperatingMode", m_enabled ? QStringLiteral("on") : QStringLiteral("off"));
     if (m_operatingMode == QLatin1String("on")) m_operatingMode = QStringLiteral("idle");
     m_idleSeconds = std::clamp(group.readEntry("IdleSeconds", 15), 3, 300);
-    m_sampleIntervalSeconds = std::clamp(group.readEntry("SampleIntervalSeconds", 15), 5, 300);
+    m_sampleIntervalSeconds = std::clamp(group.readEntry("SampleIntervalSeconds", 5), 3, 60);
     m_maxReductionPercent = std::clamp(group.readEntry("MaxBacklightReductionPercent", 35), 0, 75);
     m_batteryOnly = group.readEntry("BatteryOnly", true);
     m_perceivedBrightness = std::clamp(group.readEntry("PerceivedBrightnessPercent", 100) / 100.0f, 0.8f, 1.2f);
@@ -171,6 +176,15 @@ void LumaSaveEffect::periodicAnalysis()
     requestAnalysis();
 }
 
+void LumaSaveEffect::scheduleContentChangeAnalysis()
+{
+    if (m_enabled && m_operatingMode == QLatin1String("always") && !m_calibrationMode) {
+        m_stableSamples = 0;
+        m_sampleTimer.setInterval(m_sampleIntervalSeconds * 1000);
+        m_contentChangeTimer.start();
+    }
+}
+
 void LumaSaveEffect::armIdleDetector()
 {
     m_idleDetector = std::make_unique<IdleDetector>(std::chrono::seconds(m_idleSeconds),
@@ -194,7 +208,7 @@ void LumaSaveEffect::requestAnalysis()
         return;
     }
     if (m_calibrationMode || (!always && !idle) || !m_enabled || m_maxReductionPercent == 0 || (!always && m_active)
-        || effects->isEffectActive(QStringLiteral("screenshot"))) {
+        || m_analysisPending || effects->isEffectActive(QStringLiteral("screenshot"))) {
         qInfo() << "LumaSave idle ignored" << m_enabled << m_maxReductionPercent << m_active;
         return;
     }
@@ -292,7 +306,7 @@ void LumaSaveEffect::analyze(const RenderTarget &target, const RenderViewport &v
     qInfo() << "LumaSave Rust policy selected reduction" << reduction;
     if (m_operatingMode == QLatin1String("always") && std::abs(reduction - m_lastChosenReduction) < 0.02f) {
         ++m_stableSamples;
-        m_sampleTimer.setInterval(std::min(60, m_sampleIntervalSeconds * (1 + m_stableSamples / 2)) * 1000);
+        m_sampleTimer.setInterval(std::min(15, m_sampleIntervalSeconds * (1 + m_stableSamples / 2)) * 1000);
         Q_EMIT statusChanged();
         return;
     }

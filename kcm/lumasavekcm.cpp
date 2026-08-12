@@ -43,7 +43,7 @@ LumaSaveKcm::LumaSaveKcm(QObject *parent, const KPluginMetaData &data)
     m_idleSeconds->setSuffix(tr(" seconds"));
     form->addRow(tr("Activate after input idle:"), m_idleSeconds);
     m_sampleInterval = new QSpinBox(widget());
-    m_sampleInterval->setRange(5, 300);
+    m_sampleInterval->setRange(3, 60);
     m_sampleInterval->setSuffix(tr(" seconds"));
     form->addRow(tr("Active sampling interval:"), m_sampleInterval);
     m_maxReduction = new QSpinBox(widget());
@@ -93,7 +93,7 @@ void LumaSaveKcm::load()
     m_idleSeconds->setValue(group.readEntry("IdleSeconds", 15));
     m_maxReduction->setValue(group.readEntry("MaxBacklightReductionPercent", 35));
     m_batteryOnly->setChecked(group.readEntry("BatteryOnly", true));
-    m_sampleInterval->setValue(group.readEntry("SampleIntervalSeconds", 15));
+    m_sampleInterval->setValue(group.readEntry("SampleIntervalSeconds", 5));
     setNeedsSave(false);
 }
 
@@ -196,7 +196,7 @@ void LumaSaveKcm::defaults()
     m_idleSeconds->setValue(15);
     m_maxReduction->setValue(35);
     m_batteryOnly->setChecked(true);
-    m_sampleInterval->setValue(15);
+    m_sampleInterval->setValue(5);
 }
 
 void LumaSaveKcm::launchCalibration()

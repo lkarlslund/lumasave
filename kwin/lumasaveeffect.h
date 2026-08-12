@@ -67,6 +67,7 @@ private:
     void applyCalibrationMode();
     void configureAutomaticMode();
     void periodicAnalysis();
+    void scheduleContentChangeAnalysis();
     void accountUsage();
     void persistStatistics();
 
@@ -82,7 +83,7 @@ private:
     bool m_analysisPending = false;
     bool m_active = false;
     int m_idleSeconds = 15;
-    int m_sampleIntervalSeconds = 15;
+    int m_sampleIntervalSeconds = 5;
     int m_maxReductionPercent = 35;
     float m_perceivedBrightness = 1.0f;
     float m_shadowDetail = 0.5f;
@@ -97,6 +98,7 @@ private:
     float m_backlightScale = 1.0f;
     double m_userBrightness = 1.0;
     QTimer m_sampleTimer;
+    QTimer m_contentChangeTimer;
     QTimer m_statisticsTimer;
     QTimer m_transitionTimer;
     QElapsedTimer m_transitionClock;
