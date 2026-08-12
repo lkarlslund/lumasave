@@ -15,6 +15,7 @@ include(KDECMakeSettings)
 find_package(Qt6 6.7 REQUIRED COMPONENTS Core Gui Quick Widgets)
 find_package(KF6 6.0 REQUIRED COMPONENTS CoreAddons Config)
 find_package(KWin 6.7 REQUIRED)
+find_package(Qt6 6.7 REQUIRED COMPONENTS DBus)
 
 set(LUMASAVE_RUST_LIB ${CMAKE_CURRENT_SOURCE_DIR}/../target/release/liblumasave_core.a)
 add_custom_command(OUTPUT ${LUMASAVE_RUST_LIB}
@@ -31,3 +32,10 @@ kcoreaddons_add_plugin(lumasave INSTALL_NAMESPACE "kwin/effects/plugins"
 target_link_libraries(lumasave PRIVATE KWin::kwin KF6::ConfigCore)
 add_dependencies(lumasave lumasave_rust_core)
 target_link_libraries(lumasave PRIVATE ${LUMASAVE_RUST_LIB})
+
+qt_add_executable(lumasave-calibrate
+    ../tools/calibration/main.cpp
+    ../tools/calibration/calibrationcontroller.cpp
+    ../tools/calibration/calibration.qrc)
+target_link_libraries(lumasave-calibrate PRIVATE Qt6::Core Qt6::DBus Qt6::Gui Qt6::Quick)
+install(TARGETS lumasave-calibrate RUNTIME DESTINATION ${KDE_INSTALL_BINDIR})

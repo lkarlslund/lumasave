@@ -14,10 +14,19 @@ ApplicationWindow {
     title: "LumaSave Panel Calibration Preview"
     color: "#202124"
 
-    property bool compensated: false
+    property bool compensated: calibrationBackend.compensated
     property bool alternating: true
+    property bool deliberateClose: false
     property real reduction: maximumReduction.value / 100
     property real scale: 1 - reduction
+
+    onClosing: function(close) {
+        if (!deliberateClose) {
+            close.accepted = false
+            deliberateClose = true
+            calibrationBackend.cancelAndQuit()
+        }
+    }
 
     Settings {
         category: "Calibration-eDP-1"
@@ -29,7 +38,7 @@ ApplicationWindow {
         property alias interval: interval.value
     }
 
-    Shortcut { sequence: "Space"; onActivated: root.compensated = !root.compensated }
+    Shortcut { sequence: "Space"; onActivated: setMode(!root.compensated) }
     Shortcut { sequence: "R"; onActivated: resetDefaults() }
 
     function linearToSrgb(x) {
@@ -50,8 +59,9 @@ ApplicationWindow {
         let target = luminance + (mapped - luminance) * t * (1 - 0.35 * protection)
         target *= perceivedBrightness.value / 100
         let linear = srgbToLinear(encoded) * target / Math.max(luminance, 0.000001)
-        // Simulate what reaches the eye after the physical backlight reduction.
-        return Math.round(linearToSrgb(linear * scale) * 255)
+        // The controller applies the physical scale; the chart supplies only
+        // the corresponding pixel compensation.
+        return Math.round(linearToSrgb(linear) * 255)
     }
     function patchColor(r, g, b) {
         let lr = srgbToLinear(r), lg = srgbToLinear(g), lb = srgbToLinear(b)
@@ -71,12 +81,15 @@ ApplicationWindow {
         highlightProtection.value = 70; colorIntensity.value = 100
         maximumReduction.value = 10; interval.value = 1500
     }
+    function setMode(enabled) {
+        calibrationBackend.setCompensated(enabled, reduction)
+    }
 
     Timer {
         running: root.alternating
         repeat: true
         interval: interval.value
-        onTriggered: root.compensated = !root.compensated
+        onTriggered: root.setMode(!root.compensated)
     }
 
     RowLayout {
@@ -118,17 +131,22 @@ ApplicationWindow {
             }
             RowLayout {
                 Button { text: root.alternating ? "Pause alternating" : "Alternate A/B"; onClicked: root.alternating = !root.alternating }
-                Button { text: "Toggle now (Space)"; onClicked: root.compensated = !root.compensated }
+                Button { text: "Toggle now (Space)"; onClicked: root.setMode(!root.compensated) }
                 Item { Layout.fillWidth: true }
-                Label { text: "Simulation only — hardware brightness is untouched"; color: "#a8a8a8" }
+                Label { text: calibrationBackend.available ? "Real panel A/B · silent brightness changes" : "Brightness device unavailable"; color: calibrationBackend.available ? "#8fd694" : "#ff8b8b" }
             }
         }
 
         Frame {
-            Layout.preferredWidth: 360
+            id: controlsFrame
+            Layout.preferredWidth: Math.min(340, root.width * 0.34)
+            Layout.minimumWidth: 280
+            Layout.maximumWidth: 340
             Layout.fillHeight: true
             ColumnLayout {
-                anchors.fill: parent; spacing: 13
+                width: controlsFrame.availableWidth
+                height: controlsFrame.availableHeight
+                spacing: 13
                 Label { text: "Calibration controls"; font.pixelSize: 20; font.bold: true }
 
                 Label { text: "Perceived brightness  " + Math.round(perceivedBrightness.value) + "%" }
@@ -140,7 +158,10 @@ ApplicationWindow {
                 Label { text: "Color intensity  " + Math.round(colorIntensity.value) + "%" }
                 Slider { id: colorIntensity; from: 80; to: 120; stepSize: 1; value: 100; Layout.fillWidth: true }
                 Label { text: "Maximum reduction  " + Math.round(maximumReduction.value) + "%" }
-                Slider { id: maximumReduction; from: 0; to: 60; stepSize: 1; value: 10; Layout.fillWidth: true }
+                Slider {
+                    id: maximumReduction; from: 0; to: 60; stepSize: 1; value: 10; Layout.fillWidth: true
+                    onMoved: if (root.compensated) calibrationBackend.setCompensated(true, root.reduction)
+                }
                 Label { text: "A/B interval  " + (interval.value / 1000).toFixed(1) + " s" }
                 Slider { id: interval; from: 500; to: 3000; stepSize: 100; value: 1500; Layout.fillWidth: true }
                 Item { Layout.fillHeight: true }
@@ -149,6 +170,17 @@ ApplicationWindow {
                     text: "Exact black is invariant. Bright highlights may not be fully matchable because lowered backlight removes physical headroom."
                 }
                 Button { text: "Reset safe defaults (R)"; Layout.fillWidth: true; onClicked: root.resetDefaults() }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Button {
+                        text: "Cancel"; Layout.fillWidth: true
+                        onClicked: { root.deliberateClose = true; calibrationBackend.cancelAndQuit() }
+                    }
+                    Button {
+                        text: "Save"; highlighted: true; Layout.fillWidth: true
+                        onClicked: { root.deliberateClose = true; calibrationBackend.saveAndQuit() }
+                    }
+                }
             }
         }
     }
