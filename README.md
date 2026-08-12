@@ -85,6 +85,11 @@ cannot simulate the physical backlight itself.
   only after the configured input-idle delay.
 - In **On** mode, periodically downsample in compositor memory, with hysteresis
   and an interval that backs off when the decision is stable.
+- When sampling while compensation is active, invert the exact calibrated
+  shader curve before building the policy histogram. Decisions therefore use
+  original scene luminance and cannot feed back on compensated output.
+- Transition the shader and physical backlight together over a short eased
+  animation so content-driven changes do not appear as abrupt dimming.
 - Respect KWin and PowerDevil idle inhibitors, so video playback, presentations
   and similar keep-awake workloads never activate LumaSave.
 - Reject an apparently idle desktop that is still repainting continuously.

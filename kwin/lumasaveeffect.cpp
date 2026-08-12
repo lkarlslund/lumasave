@@ -38,6 +38,7 @@ static constexpr QSize sampleSize(64, 40);
 // prevents LumaSave's own status widget (and other panel indicators) from
 // feeding back into the content decision.
 static constexpr int sampleBorder = 3;
+static constexpr int transitionDurationMs = 900;
 
 LumaSaveEffect::LumaSaveEffect()
 {
@@ -53,6 +54,8 @@ LumaSaveEffect::LumaSaveEffect()
     connect(&m_statisticsTimer, &QTimer::timeout, this, &LumaSaveEffect::persistStatistics);
     m_statisticsTimer.start();
     connect(&m_sampleTimer, &QTimer::timeout, this, &LumaSaveEffect::periodicAnalysis);
+    m_transitionTimer.setInterval(16);
+    connect(&m_transitionTimer, &QTimer::timeout, this, &LumaSaveEffect::advanceTransition);
     readConfig();
     if (m_calibrationMode) {
         QTimer::singleShot(0, this, &LumaSaveEffect::applyCalibrationMode);
@@ -250,7 +253,12 @@ void LumaSaveEffect::analyze(const RenderTarget &target, const RenderViewport &v
                 value /= 255.0;
                 return value <= 0.04045 ? value / 12.92 : std::pow((value + 0.055) / 1.055, 2.4);
             };
-            const double luminance = 0.2126 * linear(qRed(pixel)) + 0.7152 * linear(qGreen(pixel)) + 0.0722 * linear(qBlue(pixel));
+            double luminance = 0.2126 * linear(qRed(pixel)) + 0.7152 * linear(qGreen(pixel)) + 0.0722 * linear(qBlue(pixel));
+            // The composited target contains our correction while active.
+            // Numerically invert the exact monotonic shader luminance curve,
+            // so policy decisions always use the original scene luminance
+            // and can never feed back on LumaSave's own compensation.
+            if (m_active) luminance = uncompensatedLuminance(luminance);
             const std::size_t bin = std::min<std::size_t>(luminance * histogram.size(), histogram.size() - 1);
             histogram[bin]++;
         }
@@ -271,11 +279,11 @@ void LumaSaveEffect::analyze(const RenderTarget &target, const RenderViewport &v
     m_sampleTimer.setInterval(m_sampleIntervalSeconds * 1000);
     m_lastChosenReduction = reduction;
     if (reduction >= 0.01f) {
-        if (m_active) deactivate();
         if (!m_output && !attachInternalOutput()) return;
-        activate(reduction);
+        if (m_active) transitionTo(reduction);
+        else activate(reduction);
     } else {
-        deactivate();
+        if (m_active) transitionTo(0.0f);
     }
     Q_EMIT statusChanged();
 }
@@ -316,11 +324,21 @@ void LumaSaveEffect::activate(float reduction)
     if (!m_shader) {
         return;
     }
-    const float scale = std::clamp(1.0f - reduction, 0.25f, 1.0f);
-    float perceived = m_perceivedBrightness;
-    float shadow = m_shadowDetail;
-    float highlight = m_highlightProtection;
-    float colorIntensity = m_colorIntensity;
+    accountUsage();
+    m_active = true;
+    m_currentReduction = 0.0f;
+    for (EffectWindow *window : effects->stackingOrder()) redirectWindow(window);
+    applyReduction(0.0f);
+    qInfo() << "LumaSave activating" << reduction << "user baseline" << m_output->brightnessSetting();
+    transitionTo(reduction);
+}
+
+void LumaSaveEffect::calibrationParameters(float &perceived, float &shadow, float &highlight, float &colorIntensity) const
+{
+    perceived = m_perceivedBrightness;
+    shadow = m_shadowDetail;
+    highlight = m_highlightProtection;
+    colorIntensity = m_colorIntensity;
     if (m_hasCalibrationProfiles && !m_calibrationMode) {
         const float brightness = std::clamp(float(m_userBrightness), 0.0f, 1.0f);
         const int lower = brightness <= 0.5f ? 0 : 1;
@@ -336,6 +354,16 @@ void LumaSaveEffect::activate(float reduction)
         highlight = interpolate(m_profileHighlight);
         colorIntensity = interpolate(m_profileColor);
     }
+}
+
+void LumaSaveEffect::applyReduction(float reduction)
+{
+    if (!m_shader) return;
+    accountUsage();
+    m_currentReduction = std::clamp(reduction, 0.0f, 0.75f);
+    const float scale = 1.0f - m_currentReduction;
+    float perceived, shadow, highlight, colorIntensity;
+    calibrationParameters(perceived, shadow, highlight, colorIntensity);
     {
         ShaderBinder binder(m_shader.get());
         m_shader->setUniform("backlightScale", scale);
@@ -345,22 +373,66 @@ void LumaSaveEffect::activate(float reduction)
         m_shader->setUniform("highlightProtection", highlight);
         m_shader->setUniform("colorIntensity", colorIntensity);
     }
-    accountUsage();
-    m_active = true;
-    m_currentReduction = reduction;
-    for (EffectWindow *window : effects->stackingOrder()) {
-        redirectWindow(window);
-    }
     m_backlightScale = scale;
-    qInfo() << "LumaSave activating" << reduction << "user baseline" << m_output->brightnessSetting();
+    setBacklightScale(scale);
     effects->addRepaintFull();
-    QTimer::singleShot(80, this, [this, scale] { if (m_active) setBacklightScale(scale); });
+}
+
+void LumaSaveEffect::transitionTo(float reduction)
+{
+    m_transitionStartReduction = m_currentReduction;
+    m_transitionTargetReduction = std::clamp(reduction, 0.0f, 0.75f);
+    m_transitionClock.restart();
+    m_transitionTimer.start();
     Q_EMIT statusChanged();
+}
+
+void LumaSaveEffect::advanceTransition()
+{
+    const float position = std::clamp(float(m_transitionClock.elapsed()) / transitionDurationMs, 0.0f, 1.0f);
+    const float eased = 1.0f - std::pow(1.0f - position, 3.0f);
+    applyReduction(std::lerp(m_transitionStartReduction, m_transitionTargetReduction, eased));
+    if (position >= 1.0f) {
+        m_transitionTimer.stop();
+        if (m_transitionTargetReduction < 0.01f) deactivate();
+        else Q_EMIT statusChanged();
+    }
+}
+
+float LumaSaveEffect::uncompensatedLuminance(float displayedLuminance) const
+{
+    float perceived, shadow, highlight, colorIntensity;
+    calibrationParameters(perceived, shadow, highlight, colorIntensity);
+    Q_UNUSED(colorIntensity); // Saturation adjustment preserves luminance.
+    const float scale = std::clamp(m_backlightScale, 0.25f, 1.0f);
+    const float calibratedBlack = 0.01f * std::lerp(3.0f, 0.2f, shadow);
+    auto smoothstep = [](float edge0, float edge1, float value) {
+        const float t = std::clamp((value - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+        return t * t * (3.0f - 2.0f * t);
+    };
+    auto forward = [&](float y) {
+        if (y <= calibratedBlack || scale >= 0.9999f) return y;
+        const float shoulder = scale / (1.0f - scale);
+        const float mapped = std::clamp(y * (1.0f + shoulder) / (y + shoulder), 0.0f, 1.0f);
+        const float blend = smoothstep(calibratedBlack, calibratedBlack * 2.0f, y);
+        float target = std::lerp(y, mapped, blend) * perceived;
+        target = std::lerp(target, y / scale, highlight * smoothstep(0.5f, 1.0f, y));
+        return std::clamp(target, 0.0f, 1.0f);
+    };
+    float low = 0.0f;
+    float high = 1.0f;
+    for (int i = 0; i < 14; ++i) {
+        const float middle = (low + high) * 0.5f;
+        if (forward(middle) < displayedLuminance) low = middle;
+        else high = middle;
+    }
+    return (low + high) * 0.5f;
 }
 
 void LumaSaveEffect::deactivate()
 {
     m_analysisPending = false;
+    m_transitionTimer.stop();
     if (!m_active) {
         return;
     }

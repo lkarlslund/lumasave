@@ -50,6 +50,11 @@ private:
     void requestAnalysis();
     void analyze(const RenderTarget &target, const RenderViewport &viewport, LogicalOutput *screen);
     void activate(float reduction);
+    void transitionTo(float reduction);
+    void advanceTransition();
+    void applyReduction(float reduction);
+    float uncompensatedLuminance(float displayedLuminance) const;
+    void calibrationParameters(float &perceived, float &shadow, float &highlight, float &colorIntensity) const;
     void deactivate();
     void redirectWindow(EffectWindow *window);
     void forgetWindow(EffectWindow *window);
@@ -91,6 +96,8 @@ private:
     double m_userBrightness = 1.0;
     QTimer m_sampleTimer;
     QTimer m_statisticsTimer;
+    QTimer m_transitionTimer;
+    QElapsedTimer m_transitionClock;
     QElapsedTimer m_accountingClock;
     QDateTime m_lastAnalysis;
     double m_sessionSeconds = 0.0;
@@ -100,6 +107,8 @@ private:
     double m_persistedActiveSeconds = 0.0;
     double m_persistedReductionSeconds = 0.0;
     float m_currentReduction = 0.0f;
+    float m_transitionStartReduction = 0.0f;
+    float m_transitionTargetReduction = 0.0f;
     float m_lastChosenReduction = 0.0f;
     int m_stableSamples = 0;
 };
