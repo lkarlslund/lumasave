@@ -16,7 +16,7 @@ ctest --test-dir build --output-on-failure
 
 Run `./scripts/validate-release.sh` for the complete automated check. Native
 KWin plug-ins are ABI-sensitive: rebuild after every KWin update, and never
-load a binary built for a different exact KWin package version.
+load a binary built for a different KWin upstream version.
 
 ## Pull requests
 
@@ -27,4 +27,3 @@ load a binary built for a different exact KWin package version.
 - Explain the Plasma/KWin version and hardware used for manual testing.
 
 By contributing, you agree that your contribution is licensed under MIT.
-

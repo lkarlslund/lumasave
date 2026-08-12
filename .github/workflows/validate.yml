@@ -32,7 +32,7 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Validate
         run: ./scripts/validate-release.sh
-      - name: Build exact-KWin Arch package
+      - name: Build KWin-versioned Arch package
         shell: bash
         run: |
           git archive --format=tar.gz --prefix=lumasave/ -o packaging/arch/lumasave-src.tar.gz HEAD
@@ -80,8 +80,8 @@ jobs:
           git tag -f nightly "$GITHUB_SHA"
           git push -f origin refs/tags/nightly
           if gh release view nightly >/dev/null 2>&1; then
-            gh release edit nightly --prerelease --title "LumaSave nightly" --notes "Latest validated build from $GITHUB_SHA. Built for the exact KWin dependency recorded by the package."
+            gh release edit nightly --prerelease --title "LumaSave nightly" --notes "Latest validated build from $GITHUB_SHA. Built for the KWin version recorded by the package."
           else
-            gh release create nightly --prerelease --title "LumaSave nightly" --notes "Latest validated build from $GITHUB_SHA. Built for the exact KWin dependency recorded by the package."
+            gh release create nightly --prerelease --title "LumaSave nightly" --notes "Latest validated build from $GITHUB_SHA. Built for the KWin version recorded by the package."
           fi
           gh release upload nightly artifacts/* --clobber

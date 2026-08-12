@@ -7,8 +7,9 @@ arch=(x86_64)
 url='https://github.com/lkarlslund/lumasave'
 license=(MIT)
 options=(!debug)
-_kwin_version=$(pacman -Q kwin | awk '{print $2}')
-depends=("kwin=$_kwin_version" libkscreen kcmutils qt6-base qt6-declarative plasma-workspace kdialog)
+_kwin_package_version=$(pacman -Q kwin | awk '{print $2}')
+_kwin_abi_version=${_kwin_package_version%-*}
+depends=("kwin=$_kwin_abi_version" libkscreen kcmutils qt6-base qt6-declarative plasma-workspace kdialog)
 makedepends=(cmake extra-cmake-modules rust git)
 _commit=${LUMASAVE_COMMIT:-v0.1.0-alpha.1}
 source=("$pkgname::git+$url.git#commit=$_commit")
