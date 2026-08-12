@@ -15,7 +15,7 @@
         "Id": "com.github.lkarlslund.lumasave",
         "License": "MIT",
         "Name": "LumaSave Status",
-        "Version": "0.1.0",
+        "Version": "0.1.0-alpha.1",
         "Website": "https://github.com/lkarlslund/lumasave"
     },
     "X-Plasma-API-Minimum-Version": "6.0"

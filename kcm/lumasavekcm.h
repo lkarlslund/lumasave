@@ -20,6 +20,8 @@ private:
     void clearCalibration();
     bool powerDevilDimmingEnabled() const;
     void offerToDisablePowerDevilDimming();
+    bool hdrEnabled() const;
+    bool offerToDisableHdr();
     void settingsChanged();
     QComboBox *m_mode;
     QCheckBox *m_batteryOnly;

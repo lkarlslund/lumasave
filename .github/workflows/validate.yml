@@ -1,0 +1,83 @@
+name: Validate and package
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lumasave-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arch:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install build dependencies
+        run: >-
+          pacman -Syu --noconfirm --needed git cmake extra-cmake-modules rust
+          kwin libkscreen kcmutils qt6-base qt6-declarative plasma-workspace
+          kdialog desktop-file-utils ripgrep python
+          github-cli
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate
+        run: ./scripts/validate-release.sh
+      - name: Build exact-KWin Arch package
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git archive --format=tar.gz --prefix=lumasave/ -o packaging/arch/lumasave-src.tar.gz HEAD
+          cd packaging/arch
+          cp PKGBUILD PKGBUILD.ci
+          sed -i 's|source=(.*|source=("lumasave::file://'"$PWD"'/lumasave-src.tar.gz")|' PKGBUILD
+          useradd -m builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          runuser -u builder -- makepkg --noconfirm --nodeps
+          mv PKGBUILD.ci PKGBUILD
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          mv ./*.pkg.tar.zst "$GITHUB_WORKSPACE/artifacts/"
+          printf '%s\n' "$GITHUB_SHA" > "$GITHUB_WORKSPACE/artifacts/commit.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lumasave-arch-${{ github.sha }}
+          path: artifacts/
+          retention-days: 14
+      - name: Decide whether nightly may be published
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        id: throttle
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          now=$(date +%s)
+          published_commit=$(git ls-remote origin refs/tags/nightly | cut -f1)
+          last=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/nightly" --jq .updated_at 2>/dev/null || true)
+          if [[ "$published_commit" == "$GITHUB_SHA" ]]; then
+            echo publish=false >> "$GITHUB_OUTPUT"
+          elif [[ -z "$last" ]] || (( now - $(date -d "$last" +%s) >= 14400 )); then
+            echo publish=true >> "$GITHUB_OUTPUT"
+          else
+            echo publish=false >> "$GITHUB_OUTPUT"
+          fi
+      - name: Replace rolling nightly prerelease
+        if: steps.throttle.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag -f nightly "$GITHUB_SHA"
+          git push -f origin refs/tags/nightly
+          if gh release view nightly >/dev/null 2>&1; then
+            gh release edit nightly --prerelease --title "LumaSave nightly" --notes "Latest validated build from $GITHUB_SHA. Built for the exact KWin dependency recorded by the package."
+          else
+            gh release create nightly --prerelease --title "LumaSave nightly" --notes "Latest validated build from $GITHUB_SHA. Built for the exact KWin dependency recorded by the package."
+          fi
+          gh release upload nightly artifacts/* --clobber

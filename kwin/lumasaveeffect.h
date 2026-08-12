@@ -61,6 +61,8 @@ private:
     void setBacklightScale(float scale);
     bool onBattery() const;
     bool screenChangeInhibited() const;
+    bool outputIsHdr(BackendOutput *output) const;
+    void enforceOutputCompatibility();
     bool attachInternalOutput();
     void applyCalibrationMode();
     void configureAutomaticMode();
@@ -111,5 +113,6 @@ private:
     float m_transitionTargetReduction = 0.0f;
     float m_lastChosenReduction = 0.0f;
     int m_stableSamples = 0;
+    QString m_blockedReason;
 };
 }

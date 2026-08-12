@@ -4,6 +4,10 @@
 #include <KConfigGroup>
 #include <KPluginFactory>
 #include <KSharedConfig>
+#include <KScreen/Config>
+#include <KScreen/GetConfigOperation>
+#include <KScreen/Output>
+#include <KScreen/SetConfigOperation>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDBusInterface>
@@ -97,6 +101,10 @@ void LumaSaveKcm::save()
 {
     const QString mode = m_mode->currentData().toString();
     const bool enabling = mode != QLatin1String("off");
+    if (enabling && hdrEnabled() && !offerToDisableHdr()) {
+        m_mode->setCurrentIndex(m_mode->findData(QStringLiteral("off")));
+        return;
+    }
     if (enabling && powerDevilDimmingEnabled()) offerToDisablePowerDevilDimming();
     auto config = KSharedConfig::openConfig(QStringLiteral("kwinrc"));
     KConfigGroup group(config, QStringLiteral("Effect-lumasave"));
@@ -114,6 +122,41 @@ void LumaSaveKcm::save()
     effects.call(QStringLiteral("reconfigureEffect"), QStringLiteral("lumasave"));
     if (!enabling) effects.call(QStringLiteral("unloadEffect"), QStringLiteral("lumasave"));
     setNeedsSave(false);
+}
+
+bool LumaSaveKcm::hdrEnabled() const
+{
+    KScreen::GetConfigOperation operation;
+    if (!operation.exec()) return true;
+    for (const auto &output : operation.config()->outputs()) {
+        if (output->isEnabled() && output->isHdrEnabled()) return true;
+    }
+    return false;
+}
+
+bool LumaSaveKcm::offerToDisableHdr()
+{
+    const auto answer = QMessageBox::warning(widget(), tr("HDR Is Not Supported"),
+        tr("LumaSave currently supports SDR displays only. Disable HDR on enabled displays and continue?"),
+        QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Yes);
+    if (answer != QMessageBox::Yes) return false;
+    KScreen::GetConfigOperation get;
+    if (!get.exec()) return false;
+    const auto config = get.config();
+    for (const auto &output : config->outputs()) {
+        if (output->isEnabled() && output->isHdrEnabled()) output->setHdrEnabled(false);
+    }
+    KScreen::SetConfigOperation set(config);
+    if (!set.exec()) {
+        QMessageBox::critical(widget(), tr("LumaSave"), tr("HDR could not be disabled: %1").arg(set.errorString()));
+        return false;
+    }
+    KScreen::GetConfigOperation verify;
+    if (!verify.exec()) return false;
+    for (const auto &output : verify.config()->outputs()) {
+        if (output->isEnabled() && output->isHdrEnabled()) return false;
+    }
+    return true;
 }
 
 bool LumaSaveKcm::powerDevilDimmingEnabled() const

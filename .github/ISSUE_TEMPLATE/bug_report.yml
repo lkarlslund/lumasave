@@ -1,0 +1,31 @@
+name: Bug report
+description: Report incorrect brightness, display behavior, or a crash
+body:
+  - type: markdown
+    attributes:
+      value: "Please disable LumaSave first if the display is uncomfortable."
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: system
+    attributes:
+      label: System details
+      description: Include distro, Plasma/KWin package versions, Wayland/X11, GPU, panel, HDR state, and LumaSave mode.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Paste lumasave-check and relevant journal output. Do not attach private screen content.
+

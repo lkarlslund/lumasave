@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/lumasave-core", "crates/lumasave-cli"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/lkarlslund/lumasave"
@@ -16,4 +16,3 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg"]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "0.9"
-

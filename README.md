@@ -69,7 +69,8 @@ power curves; measuring actual battery energy requires hardware-specific data.
 ## Install for one user
 
 LumaSave currently targets KDE Plasma 6.7 on Wayland. It is experimental and
-should be tested conservatively on each panel.
+the alpha hardware gate currently covers only the maintainer's laptop. Read the
+[compatibility and safety notes](docs/COMPATIBILITY.md) before enabling it.
 
 ```sh
 git clone https://github.com/lkarlslund/lumasave.git
@@ -110,9 +111,13 @@ Plasma 6.7, an internal SDR LCD panel, and a Wayland session. HDR, unsupported
 outputs, screenshots, calibration, and relevant power-management inhibitors are
 handled conservatively.
 
+HDR is not supported. When you switch LumaSave on it warns and offers to turn
+HDR off; if HDR is enabled later, LumaSave restores normal backlight operation
+and reports that it is blocked.
+
 The project consists of a native KWin effect, a display-independent Rust policy
 core, a GPU compensation shader, calibration tools, and an offline simulator.
-Developer and architecture details live in [`docs`](docs).
+Testing and release details live in [`docs`](docs).
 
 ## License
 

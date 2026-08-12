@@ -4,18 +4,16 @@ import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.components as PlasmaComponents3
 import org.kde.plasma.core as PlasmaCore
-import org.kde.plasma.plasma5support as Plasma5Support
 import org.kde.plasma.plasmoid
+import org.kde.lumasave
 
 PlasmoidItem {
     id: root
 
-    property var status: ({mode: "off", state: "unavailable", reductionPercent: 0})
-    property bool available: false
-    property int configuredMaximum: 35
-    property bool configuredBatteryOnly: true
-    property bool updatingControls: false
-    readonly property string helperPath: decodeURIComponent(Qt.resolvedUrl("../code/settings").toString().replace("file://", ""))
+    property var status: LumaSaveController.status
+    readonly property bool available: status.state !== "unavailable"
+    readonly property int configuredMaximum: LumaSaveController.maximumReduction
+    readonly property bool configuredBatteryOnly: LumaSaveController.batteryOnly
     readonly property int reduction: Number(status.reductionPercent || 0)
     readonly property string compactText: available && status.state === "saving" ? "−" + reduction + "%" : "Luma"
     readonly property string stateText: {
@@ -23,6 +21,7 @@ PlasmoidItem {
         if (status.state === "saving") return i18n("Reducing panel backlight by %1%", reduction)
         if (status.state === "analyzing") return i18n("Analyzing screen content")
         if (status.state === "calibrating") return i18n("Calibration controls the display")
+        if (status.state === "blocked" && status.blockedReason === "hdr") return i18n("Blocked · disable HDR to continue")
         if (status.mode === "always") return i18n("On · waiting for analysis")
         if (status.mode === "idle") return i18n("Waiting for inactivity")
         return i18n("Off")
@@ -45,28 +44,6 @@ PlasmoidItem {
         return (Number(seconds || 0) / 3600).toLocaleString(Qt.locale(), "f", 2) + " h"
     }
 
-    function consume(output) {
-        try {
-            status = JSON.parse(output.trim().split("\n").pop())
-            available = status.serviceAvailable !== false || status.mode === "off"
-        } catch (error) {
-            available = false
-        }
-    }
-
-    function consumeSettings(output) {
-        const fields = output.trim().split("\n").pop().split("|")
-        if (fields.length !== 3) return
-        updatingControls = true
-        configuredMaximum = Number(fields[1])
-        configuredBatteryOnly = fields[2] === "true"
-        updatingControls = false
-    }
-
-    function changeSetting(arguments_) {
-        settingsWriter.connectSource(helperPath + " " + arguments_)
-    }
-
     Plasmoid.title: i18n("LumaSave")
     Plasmoid.icon: "brightness-high"
     Plasmoid.backgroundHints: PlasmaCore.Types.DefaultBackground
@@ -74,34 +51,31 @@ PlasmoidItem {
     toolTipSubText: stateText
     preferredRepresentation: Plasmoid.formFactor === PlasmaCore.Types.Planar ? fullRepresentation : compactRepresentation
 
-    Plasma5Support.DataSource {
-        id: reader
-        engine: "executable"
-        connectedSources: [decodeURIComponent(Qt.resolvedUrl("../code/read-status").toString().replace("file://", ""))]
-        interval: 5000
-        onNewData: function(sourceName, data) {
-            if (data["exit code"] === 0 && data.stdout !== undefined) root.consume(data.stdout)
-            else root.available = false
-        }
+    Kirigami.PromptDialog {
+        id: hdrDialog
+        title: i18n("HDR Is Not Supported")
+        subtitle: i18n("LumaSave supports SDR displays only. Disable HDR on enabled displays and continue?")
+        standardButtons: Kirigami.Dialog.Yes | Kirigami.Dialog.Cancel
+        onAccepted: LumaSaveController.confirmDisableHdr()
+        onRejected: LumaSaveController.cancelDisableHdr()
     }
-
-    Plasma5Support.DataSource {
-        id: settingsReader
-        engine: "executable"
-        connectedSources: [root.helperPath + " read"]
-        interval: 5000
-        onNewData: function(sourceName, data) {
-            if (data["exit code"] === 0 && data.stdout !== undefined) root.consumeSettings(data.stdout)
-        }
+    Kirigami.PromptDialog {
+        id: dimmingDialog
+        title: i18n("Conflicting Automatic Dimming")
+        subtitle: i18n("KDE's built-in inactive-screen dimming can stack with LumaSave. Disable it for all power profiles? Screen-off and suspend settings are unchanged.")
+        standardButtons: Kirigami.Dialog.Yes | Kirigami.Dialog.No
+        onAccepted: LumaSaveController.confirmDisableDimming()
+        onRejected: LumaSaveController.keepDimming()
     }
-
-    Plasma5Support.DataSource {
-        id: settingsWriter
-        engine: "executable"
-        onNewData: function(sourceName, data) {
-            disconnectSource(sourceName)
-            if (data["exit code"] === 0 && data.stdout !== undefined) root.consumeSettings(data.stdout)
+    Connections {
+        target: LumaSaveController
+        function onHdrConfirmationRequiredChanged() {
+            if (LumaSaveController.hdrConfirmationRequired) hdrDialog.open()
         }
+        function onDimmingConfirmationRequiredChanged() {
+            if (LumaSaveController.dimmingConfirmationRequired) dimmingDialog.open()
+        }
+        function onError(message) { root.showPassiveNotification(message) }
     }
 
     compactRepresentation: MouseArea {
@@ -147,21 +121,21 @@ PlasmoidItem {
                     checkable: true
                     checked: root.status.mode === "off"
                     Layout.fillWidth: true
-                    onClicked: root.changeSetting("mode off")
+                    onClicked: LumaSaveController.requestMode("off")
                 }
                 PlasmaComponents3.Button {
                     text: i18n("On")
                     checkable: true
                     checked: root.status.mode === "always"
                     Layout.fillWidth: true
-                    onClicked: root.changeSetting("mode always")
+                    onClicked: LumaSaveController.requestMode("always")
                 }
                 PlasmaComponents3.Button {
                     text: i18n("Idle")
                     checkable: true
                     checked: root.status.mode === "idle"
                     Layout.fillWidth: true
-                    onClicked: root.changeSetting("mode idle")
+                    onClicked: LumaSaveController.requestMode("idle")
                 }
             }
             RowLayout {
@@ -175,13 +149,13 @@ PlasmoidItem {
                     editable: true
                     textFromValue: function(value, locale) { return value + "%" }
                     valueFromText: function(text, locale) { return Number(text.replace("%", "")) }
-                    onValueModified: root.changeSetting("maximum " + value)
+                    onValueModified: LumaSaveController.setMaximumReduction(value)
                 }
             }
             PlasmaComponents3.CheckBox {
                 text: i18n("Only while running on battery")
                 checked: root.configuredBatteryOnly
-                onToggled: if (!root.updatingControls) root.changeSetting("battery " + (checked ? "true" : "false"))
+                onToggled: LumaSaveController.setBatteryOnly(checked)
             }
             Kirigami.Separator { Layout.fillWidth: true }
             GridLayout {
@@ -200,7 +174,7 @@ PlasmoidItem {
                 PlasmaComponents3.Label {
                     text: i18nc("Average reduction and saved backlight hours", "%1% avg · %2 saved",
                                 Number(root.status.todayAverageReductionPercent || 0).toLocaleString(Qt.locale(), "f", 1),
-                                root.backlightHours(root.status.todayEquivalentFullReductionSeconds))
+                                root.backlightHours(root.status.todaySavedBacklightSeconds))
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignRight
                 }
@@ -208,7 +182,7 @@ PlasmoidItem {
                 PlasmaComponents3.Label {
                     text: i18nc("Average reduction and saved backlight hours", "%1% avg · %2 saved",
                                 Number(root.status.allTimeAverageReductionPercent || 0).toLocaleString(Qt.locale(), "f", 1),
-                                root.backlightHours(root.status.allTimeEquivalentFullReductionSeconds))
+                                root.backlightHours(root.status.allTimeSavedBacklightSeconds))
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignRight
                 }

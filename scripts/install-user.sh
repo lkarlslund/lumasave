@@ -12,6 +12,11 @@ cmake -S "$project_dir/kwin" -B "$build_dir" \
 cmake --build "$build_dir" --parallel
 cmake --install "$build_dir"
 
+# Remove helper scripts used by pre-alpha widget revisions. The current widget
+# talks to its native controller over D-Bus and never launches shell polling.
+rm -f "$HOME/.local/share/plasma/plasmoids/com.github.lkarlslund.lumasave/contents/code/read-status"
+rm -f "$HOME/.local/share/plasma/plasmoids/com.github.lkarlslund.lumasave/contents/code/settings"
+
 # Refresh the per-user service cache so System Settings discovers the KCM
 # immediately without a session restart.
 kbuildsycoca6 >/dev/null

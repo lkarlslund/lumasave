@@ -1,11 +1,11 @@
 {
   "KPlugin": {
     "Name": "LumaSave",
-    "Description": "Content-adaptive backlight saving after input idle",
+    "Description": "Reduce laptop backlight power while preserving readable contrast",
     "Category": "Appearance",
     "EnabledByDefault": false,
     "License": "MIT",
-    "Version": "0.1.0",
+    "Version": "0.1.0-alpha.1",
     "Authors": [{ "Name": "Lars Karlslund" }]
   },
   "org.kde.kwin.effect": {

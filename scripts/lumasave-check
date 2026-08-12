@@ -6,6 +6,7 @@ helper_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 default_prefix=$(CDPATH= cd -- "$helper_dir/.." && pwd)
 prefix=${LUMASAVE_PREFIX:-"$default_prefix"}
 plugin="$prefix/lib/qt6/plugins/kwin/effects/plugins/lumasave.so"
+qml_plugin="$prefix/lib/qml/org/kde/lumasave/lumasaveqmlplugin.so"
 build_info="$prefix/share/lumasave/build-info"
 
 if [ ! -f "$plugin" ]; then
@@ -15,6 +16,15 @@ fi
 if ldd "$plugin" 2>/dev/null | grep -q 'not found'; then
     echo "LumaSave has unresolved libraries; rebuild it against the current Plasma/KWin installation." >&2
     ldd "$plugin" | grep 'not found' >&2
+    exit 1
+fi
+if [ ! -f "$qml_plugin" ]; then
+    echo "LumaSave's Plasma controller was not found at $qml_plugin" >&2
+    exit 1
+fi
+if ldd "$qml_plugin" 2>/dev/null | grep -q 'not found'; then
+    echo "LumaSave's Plasma controller has unresolved libraries; reinstall it." >&2
+    ldd "$qml_plugin" | grep 'not found' >&2
     exit 1
 fi
 

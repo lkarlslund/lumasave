@@ -1,14 +1,16 @@
 # Maintainer: Lars Karlslund
 pkgname=lumasave
-pkgver=0.1.0
+pkgver=0.1.0.alpha.1
 pkgrel=1
 pkgdesc='Content-adaptive LCD backlight power saving for KDE Plasma'
 arch=(x86_64)
 url='https://github.com/lkarlslund/lumasave'
 license=(MIT)
-depends=(kwin kcmutils qt6-base qt6-declarative kdialog)
+_kwin_version=$(pacman -Q kwin | awk '{print $2}')
+depends=("kwin=$_kwin_version" libkscreen kcmutils qt6-base qt6-declarative plasma-workspace kdialog)
 makedepends=(cmake extra-cmake-modules rust git)
-source=("$pkgname::git+$url.git#tag=v$pkgver")
+_commit=${LUMASAVE_COMMIT:-v0.1.0-alpha.1}
+source=("$pkgname::git+$url.git#commit=$_commit")
 b2sums=(SKIP)
 
 prepare() {

@@ -1,6 +1,7 @@
 /target/
 /build/
 /build-kwin/
+/build-*/
 *.png
 !docs/*.png
 .idea/

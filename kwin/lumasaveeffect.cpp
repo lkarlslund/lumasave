@@ -9,6 +9,7 @@
 #include "idledetector.h"
 #include "main.h"
 #include "core/outputbackend.h"
+#include "core/colorspace.h"
 #include "opengl/glframebuffer.h"
 #include "opengl/glshader.h"
 #include "opengl/glshadermanager.h"
@@ -51,12 +52,23 @@ LumaSaveEffect::LumaSaveEffect()
         QDBusConnection::ExportAllProperties | QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     m_accountingClock.start();
     m_statisticsTimer.setInterval(60000);
-    connect(&m_statisticsTimer, &QTimer::timeout, this, &LumaSaveEffect::persistStatistics);
+    connect(&m_statisticsTimer, &QTimer::timeout, this, [this] {
+        persistStatistics();
+        Q_EMIT statusChanged();
+    });
     m_statisticsTimer.start();
     connect(&m_sampleTimer, &QTimer::timeout, this, &LumaSaveEffect::periodicAnalysis);
     m_transitionTimer.setInterval(16);
     connect(&m_transitionTimer, &QTimer::timeout, this, &LumaSaveEffect::advanceTransition);
+    for (BackendOutput *output : kwinApp()->outputBackend()->outputs()) {
+        connect(output, &BackendOutput::colorDescriptionChanged, this, &LumaSaveEffect::enforceOutputCompatibility);
+    }
+    connect(kwinApp()->outputBackend(), &OutputBackend::outputAdded, this, [this](BackendOutput *output) {
+        connect(output, &BackendOutput::colorDescriptionChanged, this, &LumaSaveEffect::enforceOutputCompatibility);
+        enforceOutputCompatibility();
+    });
     readConfig();
+    enforceOutputCompatibility();
     if (m_calibrationMode) {
         QTimer::singleShot(0, this, &LumaSaveEffect::applyCalibrationMode);
     } else {
@@ -169,6 +181,8 @@ void LumaSaveEffect::armIdleDetector()
 
 void LumaSaveEffect::requestAnalysis()
 {
+    enforceOutputCompatibility();
+    if (!m_blockedReason.isEmpty()) return;
     const bool always = m_operatingMode == QLatin1String("always");
     const bool idle = m_operatingMode == QLatin1String("idle");
     if (m_batteryOnly && !onBattery()) {
@@ -217,6 +231,13 @@ void LumaSaveEffect::analyze(const RenderTarget &target, const RenderViewport &v
                 << (output ? output->brightnessDevice() : nullptr);
         return;
     }
+    if (outputIsHdr(output)) {
+        m_blockedReason = QStringLiteral("hdr");
+        deactivate();
+        Q_EMIT statusChanged();
+        return;
+    }
+    m_blockedReason.clear();
     auto texture = GLTexture::allocate(GL_RGBA8, sampleSize);
     if (!texture) {
         qInfo() << "LumaSave sample texture allocation failed";
@@ -313,6 +334,8 @@ bool LumaSaveEffect::attachInternalOutput()
 
 void LumaSaveEffect::applyCalibrationMode()
 {
+    enforceOutputCompatibility();
+    if (!m_blockedReason.isEmpty()) return;
     if (m_calibrationMode && m_calibrationActive && m_calibrationReductionPercent > 0
         && attachInternalOutput()) {
         activate(m_calibrationReductionPercent / 100.0f);
@@ -489,6 +512,7 @@ void LumaSaveEffect::persistStatistics()
 
 QString LumaSaveEffect::runtimeState() const
 {
+    if (!m_blockedReason.isEmpty()) return QStringLiteral("blocked");
     if (m_calibrationMode) return QStringLiteral("calibrating");
     if (m_analysisPending) return QStringLiteral("analyzing");
     if (m_active) return QStringLiteral("saving");
@@ -543,23 +567,31 @@ QString LumaSaveEffect::statusJson()
     allSession += pendingSession;
     allActive += pendingActive;
     allReduction += pendingReduction;
-    QJsonObject status{{QStringLiteral("mode"), m_operatingMode},
+    const double fullScaleReduction = userBrightness * m_currentReduction;
+    QJsonObject status{{QStringLiteral("schemaVersion"), 2},
+                       {QStringLiteral("mode"), m_operatingMode},
                        {QStringLiteral("state"), runtimeState()},
+                       {QStringLiteral("blockedReason"), m_blockedReason},
                        {QStringLiteral("reductionPercent"), currentReductionPercent()},
+                       {QStringLiteral("relativeReductionPercent"), 100.0 * m_currentReduction},
+                       {QStringLiteral("fullScaleReductionPercent"), 100.0 * fullScaleReduction},
                        {QStringLiteral("userBrightnessPercent"), qRound(userBrightness * 100.0)},
                        {QStringLiteral("effectiveBrightnessPercent"), qRound(userBrightness * m_backlightScale * 100.0)},
                        {QStringLiteral("sessionSeconds"), m_sessionSeconds},
                        {QStringLiteral("activeSeconds"), m_activeSeconds},
                        {QStringLiteral("averageReductionPercent"), average},
                        {QStringLiteral("equivalentFullReductionSeconds"), m_reductionSeconds},
+                       {QStringLiteral("savedBacklightSeconds"), m_reductionSeconds},
                        {QStringLiteral("todaySessionSeconds"), todaySession},
                        {QStringLiteral("todayActiveSeconds"), todayActive},
                        {QStringLiteral("todayAverageReductionPercent"), todaySession > 0.0 ? 100.0 * todayReduction / todaySession : 0.0},
                        {QStringLiteral("todayEquivalentFullReductionSeconds"), todayReduction},
+                       {QStringLiteral("todaySavedBacklightSeconds"), todayReduction},
                        {QStringLiteral("allTimeSessionSeconds"), allSession},
                        {QStringLiteral("allTimeActiveSeconds"), allActive},
                        {QStringLiteral("allTimeAverageReductionPercent"), allSession > 0.0 ? 100.0 * allReduction / allSession : 0.0},
                        {QStringLiteral("allTimeEquivalentFullReductionSeconds"), allReduction},
+                       {QStringLiteral("allTimeSavedBacklightSeconds"), allReduction},
                        {QStringLiteral("lastAnalysis"), m_lastAnalysis.toString(Qt::ISODate)}};
     return QString::fromUtf8(QJsonDocument(status).toJson(QJsonDocument::Compact));
 }
@@ -609,6 +641,28 @@ bool LumaSaveEffect::screenChangeInhibited() const
                           QStringLiteral("org.kde.Solid.PowerManagement.PolicyAgent"));
     const QDBusReply<bool> reply = policy.call(QStringLiteral("HasInhibition"), uint(4));
     return reply.isValid() && reply.value();
+}
+
+bool LumaSaveEffect::outputIsHdr(BackendOutput *output) const
+{
+    return output && output->colorDescription()
+        && output->colorDescription()->transferFunction().type == TransferFunction::PerceptualQuantizer;
+}
+
+void LumaSaveEffect::enforceOutputCompatibility()
+{
+    for (BackendOutput *output : kwinApp()->outputBackend()->outputs()) {
+        if (output->isInternal() && outputIsHdr(output)) {
+            m_blockedReason = QStringLiteral("hdr");
+            deactivate();
+            Q_EMIT statusChanged();
+            return;
+        }
+    }
+    if (m_blockedReason == QLatin1String("hdr")) {
+        m_blockedReason.clear();
+        Q_EMIT statusChanged();
+    }
 }
 }
 
