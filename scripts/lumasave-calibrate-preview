@@ -53,11 +53,18 @@ cleanup
 [ "$status" -eq 0 ] || exit "$status"
 
 preview_config="$HOME/.config/LumaSave/Calibration.conf"
-group=Calibration-eDP-1
-read_value() { kreadconfig6 --file "$preview_config" --group "$group" --key "$1" --default "$2"; }
-kwriteconfig6 --file kwinrc --group Effect-lumasave --key PerceivedBrightnessPercent "$(read_value perceivedBrightness 100)"
-kwriteconfig6 --file kwinrc --group Effect-lumasave --key ShadowDetailPercent "$(read_value shadowDetail 50)"
-kwriteconfig6 --file kwinrc --group Effect-lumasave --key HighlightProtectionPercent "$(read_value highlightProtection 70)"
-kwriteconfig6 --file kwinrc --group Effect-lumasave --key ColorIntensityPercent "$(read_value colorIntensity 100)"
-kwriteconfig6 --file kwinrc --group Effect-lumasave --key MaxBacklightReductionPercent "$(read_value maxReduction 10)"
+for level in 25 50 100; do
+    group="Calibration-$level"
+    for pair in 'PerceivedBrightnessPercent perceivedBrightness 100' \
+        'ShadowDetailPercent shadowDetail 50' \
+        'HighlightProtectionPercent highlightProtection 70' \
+        'ColorIntensityPercent colorIntensity 100'; do
+        set -- $pair
+        value=$(kreadconfig6 --file "$preview_config" --group "$group" --key "$2" --default "$3")
+        kwriteconfig6 --file kwinrc --group Effect-lumasave --key "Profile$level$1" "$value"
+    done
+done
+kwriteconfig6 --file kwinrc --group Effect-lumasave --key HasCalibrationProfiles true
+reduction=$(kreadconfig6 --file "$preview_config" --group Calibration-General --key maxReduction --default 10)
+kwriteconfig6 --file kwinrc --group Effect-lumasave --key MaxBacklightReductionPercent "$reduction"
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect lumasave >/dev/null 2>&1 || true

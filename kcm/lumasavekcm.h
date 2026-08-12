@@ -16,6 +16,7 @@ public:
     void defaults() override;
 private:
     void launchCalibration();
+    void clearCalibration();
     void settingsChanged();
     QCheckBox *m_enabled;
     QCheckBox *m_batteryOnly;

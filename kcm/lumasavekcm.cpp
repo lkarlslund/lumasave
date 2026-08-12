@@ -8,6 +8,7 @@
 #include <QDBusInterface>
 #include <QDir>
 #include <QFormLayout>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
 #include <QProcess>
@@ -41,9 +42,15 @@ LumaSaveKcm::LumaSaveKcm(QObject *parent, const KPluginMetaData &data)
     form->addRow(QString(), m_batteryOnly);
     layout->addLayout(form);
 
+    auto *calibrationButtons = new QHBoxLayout;
     auto *calibrate = new QPushButton(tr("Calibrate Panel…"), widget());
     calibrate->setIcon(QIcon::fromTheme(QStringLiteral("preferences-desktop-color")));
-    layout->addWidget(calibrate, 0, Qt::AlignLeft);
+    calibrationButtons->addWidget(calibrate);
+    auto *clearCalibration = new QPushButton(tr("Clear Calibration"), widget());
+    clearCalibration->setIcon(QIcon::fromTheme(QStringLiteral("edit-clear")));
+    calibrationButtons->addWidget(clearCalibration);
+    calibrationButtons->addStretch();
+    layout->addLayout(calibrationButtons);
     auto *note = new QLabel(tr("Calibration compares normal output with a safely reduced backlight using the same full-desktop shader as LumaSave."), widget());
     note->setWordWrap(true);
     layout->addWidget(note);
@@ -54,6 +61,7 @@ LumaSaveKcm::LumaSaveKcm(QObject *parent, const KPluginMetaData &data)
     connect(m_idleSeconds, &QSpinBox::valueChanged, this, &LumaSaveKcm::settingsChanged);
     connect(m_maxReduction, &QSpinBox::valueChanged, this, &LumaSaveKcm::settingsChanged);
     connect(calibrate, &QPushButton::clicked, this, &LumaSaveKcm::launchCalibration);
+    connect(clearCalibration, &QPushButton::clicked, this, &LumaSaveKcm::clearCalibration);
 }
 
 void LumaSaveKcm::settingsChanged() { setNeedsSave(true); }
@@ -102,6 +110,29 @@ void LumaSaveKcm::launchCalibration()
     if (program.isEmpty() || !QProcess::startDetached(program)) {
         QMessageBox::critical(widget(), tr("LumaSave Calibration"), tr("The calibration helper could not be started."));
     }
+}
+
+void LumaSaveKcm::clearCalibration()
+{
+    if (QMessageBox::question(widget(), tr("Clear LumaSave Calibration"),
+            tr("Remove the 25%, 50%, and 100% panel profiles and return to the built-in correction defaults?"))
+        != QMessageBox::Yes) return;
+    auto config = KSharedConfig::openConfig(QStringLiteral("kwinrc"));
+    KConfigGroup group(config, QStringLiteral("Effect-lumasave"));
+    group.deleteEntry("HasCalibrationProfiles");
+    constexpr int levels[] = {25, 50, 100};
+    const QStringList suffixes{
+        QStringLiteral("PerceivedBrightnessPercent"), QStringLiteral("ShadowDetailPercent"),
+        QStringLiteral("HighlightProtectionPercent"), QStringLiteral("ColorIntensityPercent")};
+    for (int level : levels) {
+        for (const QString &suffix : suffixes) {
+            group.deleteEntry(QStringLiteral("Profile%1%2").arg(level).arg(suffix));
+        }
+    }
+    config->sync();
+    QDBusInterface effects(QStringLiteral("org.kde.KWin"), QStringLiteral("/Effects"), QStringLiteral("org.kde.kwin.Effects"));
+    effects.call(QStringLiteral("reconfigureEffect"), QStringLiteral("lumasave"));
+    QMessageBox::information(widget(), tr("LumaSave Calibration"), tr("Calibration cleared. Built-in defaults are now in use."));
 }
 
 #include "lumasavekcm.moc"

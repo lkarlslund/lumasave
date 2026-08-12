@@ -5,6 +5,7 @@
 
 #include <QElapsedTimer>
 #include <QPointer>
+#include <array>
 #include <memory>
 #include <unordered_set>
 
@@ -58,6 +59,11 @@ private:
     float m_shadowDetail = 0.5f;
     float m_highlightProtection = 0.7f;
     float m_colorIntensity = 1.0f;
+    bool m_hasCalibrationProfiles = false;
+    std::array<float, 3> m_profilePerceived{1.0f, 1.0f, 1.0f};
+    std::array<float, 3> m_profileShadow{0.5f, 0.5f, 0.5f};
+    std::array<float, 3> m_profileHighlight{0.7f, 0.7f, 0.7f};
+    std::array<float, 3> m_profileColor{1.0f, 1.0f, 1.0f};
     QPointer<BackendOutput> m_output;
     float m_backlightScale = 1.0f;
     double m_userBrightness = 1.0;

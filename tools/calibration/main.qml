@@ -14,11 +14,13 @@ ApplicationWindow {
     title: "LumaSave Panel Calibration Preview"
     color: "#202124"
 
-    property bool compensated: calibrationBackend.compensated
+    property int previewMode: calibrationBackend.previewMode
     property bool alternating: false
     property bool deliberateClose: false
     property real reduction: maximumReduction.value / 100
     property real scale: 1 - reduction
+    property int calibrationLevel: 100
+    property bool profileInitialized: false
 
     onClosing: function(close) {
         if (!deliberateClose) {
@@ -29,16 +31,15 @@ ApplicationWindow {
     }
 
     Settings {
-        category: "Calibration-eDP-1"
-        property alias perceivedBrightness: perceivedBrightness.value
-        property alias shadowDetail: shadowDetail.value
-        property alias highlightProtection: highlightProtection.value
-        property alias colorIntensity: colorIntensity.value
+        category: "Calibration-General"
         property alias maxReduction: maximumReduction.value
         property alias interval: interval.value
     }
+    Settings { id: profile25; category: "Calibration-25"; property int perceivedBrightness: 100; property int shadowDetail: 50; property int highlightProtection: 70; property int colorIntensity: 100 }
+    Settings { id: profile50; category: "Calibration-50"; property int perceivedBrightness: 100; property int shadowDetail: 50; property int highlightProtection: 70; property int colorIntensity: 100 }
+    Settings { id: profile100; category: "Calibration-100"; property int perceivedBrightness: 100; property int shadowDetail: 50; property int highlightProtection: 70; property int colorIntensity: 100 }
 
-    Shortcut { sequence: "Space"; onActivated: setMode(!root.compensated) }
+    Shortcut { sequence: "Space"; onActivated: setMode(root.previewMode === 0 ? 2 : 0) }
     Shortcut { sequence: "R"; onActivated: resetDefaults() }
 
     function linearToSrgb(x) {
@@ -64,8 +65,28 @@ ApplicationWindow {
         highlightProtection.value = 70; colorIntensity.value = 100
         maximumReduction.value = 10; interval.value = 1500
     }
-    function setMode(enabled) {
-        calibrationBackend.setCompensated(enabled, reduction,
+    function profile(level) { return level === 25 ? profile25 : (level === 50 ? profile50 : profile100) }
+    function storeProfile() {
+        let p = profile(calibrationLevel)
+        p.perceivedBrightness = Math.round(perceivedBrightness.value)
+        p.shadowDetail = Math.round(shadowDetail.value)
+        p.highlightProtection = Math.round(highlightProtection.value)
+        p.colorIntensity = Math.round(colorIntensity.value)
+    }
+    function selectLevel(level) {
+        if (profileInitialized) storeProfile()
+        calibrationLevel = level
+        let p = profile(level)
+        perceivedBrightness.value = p.perceivedBrightness
+        shadowDetail.value = p.shadowDetail
+        highlightProtection.value = p.highlightProtection
+        colorIntensity.value = p.colorIntensity
+        profileInitialized = true
+        alternating = false
+        calibrationBackend.setCalibrationLevel(level)
+    }
+    function setMode(mode) {
+        calibrationBackend.setPreviewMode(mode, reduction,
                                           Math.round(perceivedBrightness.value),
                                           Math.round(shadowDetail.value),
                                           Math.round(highlightProtection.value),
@@ -76,8 +97,9 @@ ApplicationWindow {
         running: root.alternating
         repeat: true
         interval: interval.value
-        onTriggered: root.setMode(!root.compensated)
+        onTriggered: root.setMode(root.previewMode === 0 ? 2 : 0)
     }
+    Component.onCompleted: selectLevel(100)
 
     RowLayout {
         anchors.fill: parent
@@ -90,13 +112,19 @@ ApplicationWindow {
             spacing: 12
 
             Label {
-                text: root.compensated ? "B · Reduced backlight + compensation" : "A · Normal"
-                color: root.compensated ? "#63d7ff" : "white"
+                text: root.previewMode === 0 ? "A · Normal" : (root.previewMode === 1 ? "B · Reduced backlight · compensation temporarily bypassed" : "B · Reduced backlight + compensation")
+                color: root.previewMode === 0 ? "white" : (root.previewMode === 1 ? "#ffbf69" : "#63d7ff")
                 font.pixelSize: 22; font.bold: true
             }
             Label {
                 text: "Space toggles A/B. Adjust until both modes have similar readable detail."
                 color: "#c8c8c8"; wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
+            RowLayout {
+                Label { text: "Panel brightness:"; color: "#d0d0d0" }
+                Button { text: "25%"; checkable: true; checked: root.calibrationLevel === 25; onClicked: root.selectLevel(25) }
+                Button { text: "50%"; checkable: true; checked: root.calibrationLevel === 50; onClicked: root.selectLevel(50) }
+                Button { text: "100%"; checkable: true; checked: root.calibrationLevel === 100; onClicked: root.selectLevel(100) }
             }
 
             TabBar {
@@ -132,7 +160,16 @@ ApplicationWindow {
             }
             RowLayout {
                 Button { text: root.alternating ? "Pause alternating" : "Alternate A/B"; onClicked: root.alternating = !root.alternating }
-                Button { text: "Toggle now (Space)"; onClicked: root.setMode(!root.compensated) }
+                Button { text: "Toggle A/B (Space)"; onClicked: root.setMode(root.previewMode === 0 ? 2 : 0) }
+                Button {
+                    text: pressed ? "Compensation bypassed" : "Hold to bypass compensation"
+                    enabled: root.previewMode !== 0
+                    onPressed: root.setMode(1)
+                    onReleased: root.setMode(2)
+                    onCanceled: root.setMode(2)
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Diagnostic preview only. It keeps the same reduced backlight and temporarily removes the shader; it is never saved."
+                }
                 Item { Layout.fillWidth: true }
                 Label { text: calibrationBackend.available ? "Real panel A/B · silent brightness changes" : "Brightness device unavailable"; color: calibrationBackend.available ? "#8fd694" : "#ff8b8b" }
             }
@@ -151,17 +188,17 @@ ApplicationWindow {
                 Label { text: "Calibration controls"; font.pixelSize: 20; font.bold: true }
 
                 Label { text: "Perceived brightness  " + Math.round(perceivedBrightness.value) + "%" }
-                Slider { id: perceivedBrightness; from: 80; to: 120; stepSize: 1; value: 100; Layout.fillWidth: true; onMoved: if (root.compensated) root.setMode(true) }
+                Slider { id: perceivedBrightness; from: 80; to: 120; stepSize: 1; value: 100; Layout.fillWidth: true; onMoved: if (root.previewMode === 2) root.setMode(2) }
                 Label { text: "Shadow detail  " + Math.round(shadowDetail.value) + "%" }
-                Slider { id: shadowDetail; from: 0; to: 100; stepSize: 1; value: 50; Layout.fillWidth: true; onMoved: if (root.compensated) root.setMode(true) }
+                Slider { id: shadowDetail; from: 0; to: 100; stepSize: 1; value: 50; Layout.fillWidth: true; onMoved: if (root.previewMode === 2) root.setMode(2) }
                 Label { text: "Highlight protection  " + Math.round(highlightProtection.value) + "%" }
-                Slider { id: highlightProtection; from: 0; to: 100; stepSize: 1; value: 70; Layout.fillWidth: true; onMoved: if (root.compensated) root.setMode(true) }
+                Slider { id: highlightProtection; from: 0; to: 100; stepSize: 1; value: 70; Layout.fillWidth: true; onMoved: if (root.previewMode === 2) root.setMode(2) }
                 Label { text: "Color intensity  " + Math.round(colorIntensity.value) + "%" }
-                Slider { id: colorIntensity; from: 80; to: 120; stepSize: 1; value: 100; Layout.fillWidth: true; onMoved: if (root.compensated) root.setMode(true) }
+                Slider { id: colorIntensity; from: 80; to: 120; stepSize: 1; value: 100; Layout.fillWidth: true; onMoved: if (root.previewMode === 2) root.setMode(2) }
                 Label { text: "Maximum reduction  " + Math.round(maximumReduction.value) + "%" }
                 Slider {
                     id: maximumReduction; from: 0; to: 30; stepSize: 1; value: 10; Layout.fillWidth: true
-                    onMoved: if (root.compensated) root.setMode(true)
+                    onMoved: if (root.previewMode > 0) root.setMode(root.previewMode)
                 }
                 Label { text: "A/B interval  " + (interval.value / 1000).toFixed(1) + " s" }
                 Slider { id: interval; from: 500; to: 3000; stepSize: 100; value: 1500; Layout.fillWidth: true }
@@ -179,7 +216,7 @@ ApplicationWindow {
                     }
                     Button {
                         text: "Save"; highlighted: true; Layout.fillWidth: true
-                        onClicked: { root.deliberateClose = true; calibrationBackend.saveAndQuit() }
+                        onClicked: { root.storeProfile(); root.deliberateClose = true; calibrationBackend.saveAndQuit() }
                     }
                 }
             }

@@ -36,9 +36,10 @@ LumaSaveEffect::LumaSaveEffect()
     connect(effects, &EffectsHandler::windowAdded, this, &LumaSaveEffect::redirectWindow);
     connect(effects, &EffectsHandler::windowDeleted, this, &LumaSaveEffect::forgetWindow);
     readConfig();
-    armIdleDetector();
     if (m_calibrationMode) {
         QTimer::singleShot(0, this, &LumaSaveEffect::applyCalibrationMode);
+    } else {
+        armIdleDetector();
     }
 }
 
@@ -73,6 +74,15 @@ void LumaSaveEffect::readConfig()
     m_shadowDetail = std::clamp(group.readEntry("ShadowDetailPercent", 50) / 100.0f, 0.0f, 1.0f);
     m_highlightProtection = std::clamp(group.readEntry("HighlightProtectionPercent", 70) / 100.0f, 0.0f, 1.0f);
     m_colorIntensity = std::clamp(group.readEntry("ColorIntensityPercent", 100) / 100.0f, 0.8f, 1.2f);
+    m_hasCalibrationProfiles = group.readEntry("HasCalibrationProfiles", false);
+    constexpr std::array<int, 3> levels{25, 50, 100};
+    for (std::size_t i = 0; i < levels.size(); ++i) {
+        const QString prefix = QStringLiteral("Profile%1").arg(levels[i]);
+        m_profilePerceived[i] = std::clamp(group.readEntry(prefix + QStringLiteral("PerceivedBrightnessPercent"), 100) / 100.0f, 0.8f, 1.2f);
+        m_profileShadow[i] = std::clamp(group.readEntry(prefix + QStringLiteral("ShadowDetailPercent"), 50) / 100.0f, 0.0f, 1.0f);
+        m_profileHighlight[i] = std::clamp(group.readEntry(prefix + QStringLiteral("HighlightProtectionPercent"), 70) / 100.0f, 0.0f, 1.0f);
+        m_profileColor[i] = std::clamp(group.readEntry(prefix + QStringLiteral("ColorIntensityPercent"), 100) / 100.0f, 0.8f, 1.2f);
+    }
     m_calibrationMode = group.readEntry("CalibrationMode", false);
     m_calibrationActive = group.readEntry("CalibrationActive", false);
     m_calibrationReductionPercent = std::clamp(group.readEntry("CalibrationReductionPercent", 10), 0, 60);
@@ -88,12 +98,13 @@ void LumaSaveEffect::reconfigure(ReconfigureFlags)
 {
     const int previousMaximum = m_maxReductionPercent;
     readConfig();
-    armIdleDetector();
     if (m_calibrationMode) {
+        m_idleDetector.reset();
         deactivate();
         applyCalibrationMode();
         return;
     }
+    armIdleDetector();
     if (!m_enabled || m_maxReductionPercent == 0) {
         deactivate();
     } else if (m_active && previousMaximum != m_maxReductionPercent) {
@@ -112,7 +123,7 @@ void LumaSaveEffect::armIdleDetector()
 
 void LumaSaveEffect::requestAnalysis()
 {
-    if (!m_enabled || m_maxReductionPercent == 0 || m_active
+    if (m_calibrationMode || !m_enabled || m_maxReductionPercent == 0 || m_active
         || (m_batteryOnly && !onBattery())
         || effects->isEffectActive(QStringLiteral("screenshot"))) {
         qInfo() << "LumaSave idle ignored" << m_enabled << m_maxReductionPercent << m_active;
@@ -237,14 +248,33 @@ void LumaSaveEffect::activate(float reduction)
         return;
     }
     const float scale = std::clamp(1.0f - reduction, 0.25f, 1.0f);
+    float perceived = m_perceivedBrightness;
+    float shadow = m_shadowDetail;
+    float highlight = m_highlightProtection;
+    float colorIntensity = m_colorIntensity;
+    if (m_hasCalibrationProfiles && !m_calibrationMode) {
+        const float brightness = std::clamp(float(m_userBrightness), 0.0f, 1.0f);
+        const int lower = brightness <= 0.5f ? 0 : 1;
+        const int upper = lower + 1;
+        const float lowPoint = lower == 0 ? 0.25f : 0.5f;
+        const float highPoint = lower == 0 ? 0.5f : 1.0f;
+        const float amount = std::clamp((brightness - lowPoint) / (highPoint - lowPoint), 0.0f, 1.0f);
+        auto interpolate = [lower, upper, amount](const std::array<float, 3> &values) {
+            return std::lerp(values[lower], values[upper], amount);
+        };
+        perceived = interpolate(m_profilePerceived);
+        shadow = interpolate(m_profileShadow);
+        highlight = interpolate(m_profileHighlight);
+        colorIntensity = interpolate(m_profileColor);
+    }
     {
         ShaderBinder binder(m_shader.get());
         m_shader->setUniform("backlightScale", scale);
         m_shader->setUniform("blackThreshold", 0.01f);
-        m_shader->setUniform("perceivedBrightness", m_perceivedBrightness);
-        m_shader->setUniform("shadowDetail", m_shadowDetail);
-        m_shader->setUniform("highlightProtection", m_highlightProtection);
-        m_shader->setUniform("colorIntensity", m_colorIntensity);
+        m_shader->setUniform("perceivedBrightness", perceived);
+        m_shader->setUniform("shadowDetail", shadow);
+        m_shader->setUniform("highlightProtection", highlight);
+        m_shader->setUniform("colorIntensity", colorIntensity);
     }
     m_active = true;
     for (EffectWindow *window : effects->stackingOrder()) {
