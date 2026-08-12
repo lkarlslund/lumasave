@@ -188,33 +188,44 @@ PlasmoidItem {
                 columns: 2
                 Layout.fillWidth: true
                 columnSpacing: Kirigami.Units.largeSpacing
-                PlasmaComponents3.Label { text: i18n("Mode"); opacity: 0.65 }
-                PlasmaComponents3.Label { text: root.modeText; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                PlasmaComponents3.Label { text: i18n("User brightness"); opacity: 0.65 }
-                PlasmaComponents3.Label { text: Number(root.status.userBrightnessPercent || 0) + "%"; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                PlasmaComponents3.Label { text: i18n("Effective backlight"); opacity: 0.65 }
-                PlasmaComponents3.Label { text: Number(root.status.effectiveBrightnessPercent || 0) + "%"; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                PlasmaComponents3.Label { text: i18n("Today's average"); opacity: 0.65 }
-                PlasmaComponents3.Label { text: Number(root.status.todayAverageReductionPercent || 0).toLocaleString(Qt.locale(), "f", 1) + "%"; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                PlasmaComponents3.Label { text: i18n("Saved today"); opacity: 0.65 }
-                PlasmaComponents3.Label { text: root.backlightHours(root.status.todayEquivalentFullReductionSeconds); Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                PlasmaComponents3.Label { text: i18n("All-time average"); opacity: 0.65 }
-                PlasmaComponents3.Label { text: Number(root.status.allTimeAverageReductionPercent || 0).toLocaleString(Qt.locale(), "f", 1) + "%"; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                PlasmaComponents3.Label { text: i18n("Saved all-time"); opacity: 0.65 }
-                PlasmaComponents3.Label { text: root.backlightHours(root.status.allTimeEquivalentFullReductionSeconds); Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
+                PlasmaComponents3.Label { text: i18n("Backlight"); opacity: 0.65 }
+                PlasmaComponents3.Label {
+                    text: i18nc("User brightness to effective backlight", "%1% → %2%",
+                                Number(root.status.userBrightnessPercent || 0),
+                                Number(root.status.effectiveBrightnessPercent || 0))
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignRight
+                }
+                PlasmaComponents3.Label { text: i18n("Today"); opacity: 0.65 }
+                PlasmaComponents3.Label {
+                    text: i18nc("Average reduction and saved backlight hours", "%1% avg · %2 saved",
+                                Number(root.status.todayAverageReductionPercent || 0).toLocaleString(Qt.locale(), "f", 1),
+                                root.backlightHours(root.status.todayEquivalentFullReductionSeconds))
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignRight
+                }
+                PlasmaComponents3.Label { text: i18n("All time"); opacity: 0.65 }
+                PlasmaComponents3.Label {
+                    text: i18nc("Average reduction and saved backlight hours", "%1% avg · %2 saved",
+                                Number(root.status.allTimeAverageReductionPercent || 0).toLocaleString(Qt.locale(), "f", 1),
+                                root.backlightHours(root.status.allTimeEquivalentFullReductionSeconds))
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignRight
+                }
             }
-            PlasmaComponents3.Button {
-                text: i18n("Configure LumaSave…")
-                icon.name: "configure"
-                Layout.alignment: Qt.AlignRight
-                onClicked: Qt.openUrlExternally("systemsettings://kcm_lumasave")
-            }
-            PlasmaComponents3.Label {
+            RowLayout {
                 Layout.fillWidth: true
-                text: i18n("Saved values are full-backlight-equivalent hours (reduction × time), not estimates of watts or battery life.")
-                opacity: 0.65
-                font.pixelSize: Math.round(Kirigami.Units.gridUnit * 0.65)
-                wrapMode: Text.WordWrap
+                PlasmaComponents3.Label {
+                    Layout.fillWidth: true
+                    text: i18n("Saved = reduction × time")
+                    opacity: 0.65
+                    font.pixelSize: Math.round(Kirigami.Units.gridUnit * 0.65)
+                }
+                PlasmaComponents3.Button {
+                    text: i18n("Configure…")
+                    icon.name: "configure"
+                    onClicked: Qt.openUrlExternally("systemsettings://kcm_lumasave")
+                }
             }
         }
     }
