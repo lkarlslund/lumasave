@@ -66,6 +66,10 @@ void LumaSaveEffect::readConfig()
     m_idleSeconds = std::clamp(group.readEntry("IdleSeconds", 15), 3, 300);
     m_maxReductionPercent = std::clamp(group.readEntry("MaxBacklightReductionPercent", 35), 0, 75);
     m_batteryOnly = group.readEntry("BatteryOnly", true);
+    m_perceivedBrightness = std::clamp(group.readEntry("PerceivedBrightnessPercent", 100) / 100.0f, 0.8f, 1.2f);
+    m_shadowDetail = std::clamp(group.readEntry("ShadowDetailPercent", 50) / 100.0f, 0.0f, 1.0f);
+    m_highlightProtection = std::clamp(group.readEntry("HighlightProtectionPercent", 70) / 100.0f, 0.0f, 1.0f);
+    m_colorIntensity = std::clamp(group.readEntry("ColorIntensityPercent", 100) / 100.0f, 0.8f, 1.2f);
 }
 
 void LumaSaveEffect::reconfigure(ReconfigureFlags)
@@ -190,6 +194,10 @@ void LumaSaveEffect::activate(float reduction)
         ShaderBinder binder(m_shader.get());
         m_shader->setUniform("backlightScale", scale);
         m_shader->setUniform("blackThreshold", 0.01f);
+        m_shader->setUniform("perceivedBrightness", m_perceivedBrightness);
+        m_shader->setUniform("shadowDetail", m_shadowDetail);
+        m_shader->setUniform("highlightProtection", m_highlightProtection);
+        m_shader->setUniform("colorIntensity", m_colorIntensity);
     }
     m_active = true;
     for (EffectWindow *window : effects->stackingOrder()) {

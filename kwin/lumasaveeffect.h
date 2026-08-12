@@ -49,6 +49,10 @@ private:
     bool m_active = false;
     int m_idleSeconds = 15;
     int m_maxReductionPercent = 35;
+    float m_perceivedBrightness = 1.0f;
+    float m_shadowDetail = 0.5f;
+    float m_highlightProtection = 0.7f;
+    float m_colorIntensity = 1.0f;
     QPointer<BackendOutput> m_output;
     float m_backlightScale = 1.0f;
     double m_userBrightness = 1.0;

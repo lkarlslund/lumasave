@@ -18,6 +18,37 @@ KCM.SimpleKCM {
             }
         }
 
+        Kirigami.Separator { Kirigami.FormData.isSection: true }
+
+        QQC2.Slider {
+            Kirigami.FormData.label: i18nc("Calibration gain", "Perceived brightness:")
+            from: 80; to: 120; stepSize: 1
+            value: kcm.settings.perceivedBrightnessPercent
+            onMoved: kcm.settings.perceivedBrightnessPercent = Math.round(value)
+            KCM.SettingStateBinding { configObject: kcm.settings; settingName: "PerceivedBrightnessPercent" }
+        }
+        QQC2.Slider {
+            Kirigami.FormData.label: i18nc("Calibration shadow control", "Shadow detail:")
+            from: 0; to: 100; stepSize: 1
+            value: kcm.settings.shadowDetailPercent
+            onMoved: kcm.settings.shadowDetailPercent = Math.round(value)
+            KCM.SettingStateBinding { configObject: kcm.settings; settingName: "ShadowDetailPercent" }
+        }
+        QQC2.Slider {
+            Kirigami.FormData.label: i18nc("Calibration highlight control", "Highlight protection:")
+            from: 0; to: 100; stepSize: 1
+            value: kcm.settings.highlightProtectionPercent
+            onMoved: kcm.settings.highlightProtectionPercent = Math.round(value)
+            KCM.SettingStateBinding { configObject: kcm.settings; settingName: "HighlightProtectionPercent" }
+        }
+        QQC2.Slider {
+            Kirigami.FormData.label: i18nc("Calibration color control", "Color intensity:")
+            from: 80; to: 120; stepSize: 1
+            value: kcm.settings.colorIntensityPercent
+            onMoved: kcm.settings.colorIntensityPercent = Math.round(value)
+            KCM.SettingStateBinding { configObject: kcm.settings; settingName: "ColorIntensityPercent" }
+        }
+
         Column {
             Kirigami.FormData.label: i18nc("Maximum percentage by which backlight may be reduced", "Maximum reduction:")
             spacing: Kirigami.Units.smallSpacing

@@ -10,3 +10,7 @@ max_p99_error = 0.12
 hysteresis = 0.015
 transition_ms = 2500
 motion_guard = 0.35
+perceived_brightness = 1.0
+color_intensity = 1.0
+shadow_detail = 0.5
+highlight_protection = 0.7

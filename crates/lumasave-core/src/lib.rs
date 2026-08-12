@@ -29,6 +29,14 @@ pub struct PolicyConfig {
     pub transition_ms: u32,
     /// Disable adaptation above this amount of frame-to-frame histogram motion.
     pub motion_guard: f32,
+    /// User-calibrated multiplier for perceived brightness matching.
+    pub perceived_brightness: f32,
+    /// User-calibrated saturation multiplier.
+    pub color_intensity: f32,
+    /// 0 protects shadows most; 1 allows compensation closer to black.
+    pub shadow_detail: f32,
+    /// 0 favors compensation; 1 favors unmodified highlights.
+    pub highlight_protection: f32,
 }
 
 impl Default for PolicyConfig {
@@ -45,6 +53,10 @@ impl Default for PolicyConfig {
             hysteresis: 0.015,
             transition_ms: 2500,
             motion_guard: 0.35,
+            perceived_brightness: 1.0,
+            color_intensity: 1.0,
+            shadow_detail: 0.5,
+            highlight_protection: 0.7,
         }
     }
 }
@@ -82,6 +94,13 @@ impl PolicyConfig {
         }
         if !(0.0..=0.1).contains(&self.black_preservation_threshold) {
             return Err("black_preservation_threshold must be between 0 and 0.1");
+        }
+        if !(0.8..=1.2).contains(&self.perceived_brightness)
+            || !(0.8..=1.2).contains(&self.color_intensity)
+            || !(0.0..=1.0).contains(&self.shadow_detail)
+            || !(0.0..=1.0).contains(&self.highlight_protection)
+        {
+            return Err("calibration values are outside their supported ranges");
         }
         if self.idle_seconds > 3600 {
             return Err("idle_seconds must not exceed 3600");

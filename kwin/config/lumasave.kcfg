@@ -24,5 +24,17 @@
     <entry name="BatteryOnly" type="Bool">
       <default>true</default>
     </entry>
+    <entry name="PerceivedBrightnessPercent" type="Int">
+      <default>100</default><min>80</min><max>120</max>
+    </entry>
+    <entry name="ShadowDetailPercent" type="Int">
+      <default>50</default><min>0</min><max>100</max>
+    </entry>
+    <entry name="HighlightProtectionPercent" type="Int">
+      <default>70</default><min>0</min><max>100</max>
+    </entry>
+    <entry name="ColorIntensityPercent" type="Int">
+      <default>100</default><min>80</min><max>120</max>
+    </entry>
   </group>
 </kcfg>
