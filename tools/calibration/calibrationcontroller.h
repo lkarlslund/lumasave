@@ -31,6 +31,7 @@ private:
     int readBrightnessProperty(const char *name) const;
     void setBrightness(int value);
     QString m_effectName;
+    QString m_previousOperatingMode;
     int m_originalBrightness = -1;
     int m_maximumBrightness = -1;
     int m_levelBrightness = -1;

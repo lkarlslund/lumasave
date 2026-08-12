@@ -47,7 +47,7 @@ fi
 kwriteconfig6 --file kwinrc --group Effect-lumasave --key CalibrationActive false
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect "$effect_name" >/dev/null
 set +e
-LUMASAVE_CALIBRATION_EFFECT="$effect_name" "$calibrator"
+LUMASAVE_CALIBRATION_EFFECT="$effect_name" LUMASAVE_PREVIOUS_MODE="$previous_mode" "$calibrator"
 status=$?
 set -e
 cleanup

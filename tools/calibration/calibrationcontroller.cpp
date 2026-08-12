@@ -12,6 +12,7 @@
 CalibrationController::CalibrationController(QObject *parent)
     : QObject(parent)
     , m_effectName(QProcessEnvironment::systemEnvironment().value(QStringLiteral("LUMASAVE_CALIBRATION_EFFECT")))
+    , m_previousOperatingMode(QProcessEnvironment::systemEnvironment().value(QStringLiteral("LUMASAVE_PREVIOUS_MODE")))
     , m_originalBrightness(readBrightnessProperty("Brightness"))
     , m_maximumBrightness(readBrightnessProperty("MaxBrightness"))
 {
@@ -112,6 +113,9 @@ void CalibrationController::restore()
     m_restored = true;
     if (available()) {
         writeSetting(QStringLiteral("CalibrationActive"), false);
+        if (m_previousOperatingMode == QLatin1String("on") || m_previousOperatingMode == QLatin1String("off")) {
+            writeSetting(QStringLiteral("OperatingMode"), m_previousOperatingMode);
+        }
         reconfigure();
     }
     if (m_originalBrightness >= 0) setBrightness(m_originalBrightness);
