@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
@@ -11,6 +12,7 @@ PlasmoidItem {
     id: root
 
     property var status: LumaSaveController.status
+    property string errorMessage: ""
     readonly property bool available: status.state !== "unavailable"
     readonly property int configuredMaximum: LumaSaveController.maximumReduction
     readonly property bool configuredBatteryOnly: LumaSaveController.batteryOnly
@@ -75,7 +77,7 @@ PlasmoidItem {
         function onDimmingConfirmationRequiredChanged() {
             if (LumaSaveController.dimmingConfirmationRequired) dimmingDialog.open()
         }
-        function onError(message) { root.showPassiveNotification(message) }
+        function onError(message) { root.errorMessage = message; root.expanded = true }
     }
 
     compactRepresentation: MouseArea {
@@ -87,6 +89,14 @@ PlasmoidItem {
             id: row
             anchors.centerIn: parent
             spacing: Kirigami.Units.smallSpacing
+            Kirigami.InlineMessage {
+                Layout.fillWidth: true
+                visible: root.errorMessage.length > 0
+                text: root.errorMessage
+                type: Kirigami.MessageType.Error
+                showCloseButton: true
+                onVisibleChanged: if (!visible) root.errorMessage = ""
+            }
             Kirigami.Icon {
                 source: "brightness-high"
                 implicitWidth: Kirigami.Units.iconSizes.small

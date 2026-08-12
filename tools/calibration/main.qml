@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -7,8 +8,8 @@ import QtCore
 ApplicationWindow {
     id: root
     visible: true
-    width: Screen.availableWidth > 0 ? Math.min(1100, Screen.availableWidth - 40) : 1100
-    height: Screen.availableHeight > 0 ? Math.min(760, Screen.availableHeight - 40) : 760
+    width: Screen.desktopAvailableWidth > 0 ? Math.min(1100, Screen.desktopAvailableWidth - 40) : 1100
+    height: Screen.desktopAvailableHeight > 0 ? Math.min(760, Screen.desktopAvailableHeight - 40) : 760
     minimumWidth: 900
     minimumHeight: 560
     title: "LumaSave Panel Calibration Preview"
