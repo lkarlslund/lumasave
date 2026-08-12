@@ -22,6 +22,7 @@ ApplicationWindow {
     property real scale: 1 - reduction
     property int calibrationLevel: 100
     property bool profileInitialized: false
+    property bool bypassCompensation: false
 
     onClosing: function(close) {
         if (!deliberateClose) {
@@ -89,7 +90,7 @@ ApplicationWindow {
     function selectComparison(state) {
         comparisonState = state
         if (state === 1) root.setMode(0)
-        else if (state === 2) root.setMode(2)
+        else if (state === 2) root.setMode(root.bypassCompensation ? 1 : 2)
         else root.setMode(0)
     }
     function setMode(mode) {
@@ -104,7 +105,7 @@ ApplicationWindow {
         running: root.comparisonState === 0
         repeat: true
         interval: interval.value
-        onTriggered: root.setMode(root.previewMode === 0 ? 2 : 0)
+        onTriggered: root.setMode(root.previewMode === 0 ? (root.bypassCompensation ? 1 : 2) : 0)
     }
     Component.onCompleted: selectLevel(100)
 
@@ -195,15 +196,17 @@ ApplicationWindow {
                         onClicked: root.selectComparison(2)
                     }
                 }
-                Button {
+                CheckBox {
                     Layout.columnSpan: 2; Layout.fillWidth: true
-                    text: pressed ? "Compensation bypassed" : "Hold to bypass compensation"
-                    enabled: root.previewMode !== 0
-                    onPressed: root.setMode(1)
-                    onReleased: root.setMode(2)
-                    onCanceled: root.setMode(2)
+                    text: "Bypass compensation (preview only)"
+                    checked: root.bypassCompensation
+                    onToggled: {
+                        root.bypassCompensation = checked
+                        if (root.previewMode !== 0 || root.comparisonState === 2)
+                            root.setMode(checked ? 1 : 2)
+                    }
                     ToolTip.visible: hovered
-                    ToolTip.text: "Diagnostic preview only. It keeps the same reduced backlight and temporarily removes the shader; it is never saved."
+                    ToolTip.text: "Keeps the same reduced backlight but removes the shader, making the compensation benefit visible. This setting is never saved."
                 }
                 Label { Layout.columnSpan: 2; Layout.alignment: Qt.AlignHCenter; text: calibrationBackend.available ? "Real panel A/B · silent brightness changes" : "Brightness device unavailable"; color: calibrationBackend.available ? "#8fd694" : "#ff8b8b" }
             }
