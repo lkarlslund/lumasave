@@ -7,10 +7,10 @@ import QtCore
 ApplicationWindow {
     id: root
     visible: true
-    width: 1100
-    height: 760
-    minimumWidth: 850
-    minimumHeight: 620
+    width: Screen.availableWidth > 0 ? Math.min(1100, Screen.availableWidth - 40) : 1100
+    height: Screen.availableHeight > 0 ? Math.min(760, Screen.availableHeight - 40) : 760
+    minimumWidth: 900
+    minimumHeight: 560
     title: "LumaSave Panel Calibration Preview"
     color: "#202124"
 
@@ -109,6 +109,7 @@ ApplicationWindow {
         ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumWidth: 0
             spacing: 12
 
             Label {
@@ -136,10 +137,13 @@ ApplicationWindow {
             StackLayout {
                 currentIndex: sceneTabs.currentIndex
                 Layout.fillWidth: true; Layout.fillHeight: true
+                Layout.minimumWidth: 0; Layout.minimumHeight: 0
                 Image {
                     source: "qrc:/calibration/assets/reference-scenes.png"
                     fillMode: Image.PreserveAspectFit
                     mipmap: true
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    Layout.minimumWidth: 0; Layout.minimumHeight: 0
                 }
                 GridLayout {
                     columns: 4; rowSpacing: 0; columnSpacing: 0
@@ -177,13 +181,16 @@ ApplicationWindow {
 
         Frame {
             id: controlsFrame
-            Layout.preferredWidth: Math.min(340, root.width * 0.34)
-            Layout.minimumWidth: 280
-            Layout.maximumWidth: 340
+            Layout.preferredWidth: Math.min(320, root.width * 0.32)
+            Layout.minimumWidth: Math.min(260, root.width * 0.30)
+            Layout.maximumWidth: 320
             Layout.fillHeight: true
-            ColumnLayout {
-                width: controlsFrame.availableWidth
-                height: controlsFrame.availableHeight
+            ScrollView {
+                anchors.fill: parent
+                contentWidth: availableWidth
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                ColumnLayout {
+                width: parent.width
                 spacing: 13
                 Label { text: "Calibration controls"; font.pixelSize: 20; font.bold: true }
 
@@ -202,7 +209,7 @@ ApplicationWindow {
                 }
                 Label { text: "A/B interval  " + (interval.value / 1000).toFixed(1) + " s" }
                 Slider { id: interval; from: 500; to: 3000; stepSize: 100; value: 1500; Layout.fillWidth: true }
-                Item { Layout.fillHeight: true }
+                Item { Layout.preferredHeight: 8 }
                 Label {
                     Layout.fillWidth: true; wrapMode: Text.WordWrap; color: "#b8b8b8"
                     text: "Exact black is invariant. Bright highlights may not be fully matchable because lowered backlight removes physical headroom."
@@ -218,6 +225,7 @@ ApplicationWindow {
                         text: "Save"; highlighted: true; Layout.fillWidth: true
                         onClicked: { root.storeProfile(); root.deliberateClose = true; calibrationBackend.saveAndQuit() }
                     }
+                }
                 }
             }
         }
