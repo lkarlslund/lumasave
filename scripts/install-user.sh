@@ -16,6 +16,7 @@ cmake --install "$build_dir"
 # talks to its native controller over D-Bus and never launches shell polling.
 rm -f "$HOME/.local/share/plasma/plasmoids/com.github.lkarlslund.lumasave/contents/code/read-status"
 rm -f "$HOME/.local/share/plasma/plasmoids/com.github.lkarlslund.lumasave/contents/code/settings"
+rm -f "$HOME/.local/lib/qml/org/kde/lumasave/lumasaveqmlplugin.so"
 
 # Refresh the per-user service cache so System Settings discovers the KCM
 # immediately without a session restart.

@@ -21,7 +21,7 @@ test -f "$stage_dir/usr/lib/qt6/plugins/kwin/effects/plugins/lumasave.so"
 test -f "$stage_dir/usr/lib/qt6/plugins/plasma/kcms/systemsettings/kcm_lumasave.so"
 test -f "$stage_dir/usr/share/plasma/plasmoids/com.github.lkarlslund.lumasave/contents/ui/main.qml"
 test -f "$stage_dir/usr/lib/qt6/qml/org/kde/lumasave/qmldir"
-! ldd "$stage_dir/usr/lib/qt6/qml/org/kde/lumasave/lumasaveqmlplugin.so" | grep -q 'not found'
+! ldd "$stage_dir/usr/lib/qt6/qml/org/kde/lumasave/liblumasaveqmlplugin.so" | grep -q 'not found'
 
 for file in "$project_dir"/install.sh "$project_dir"/scripts/*.sh "$project_dir"/scripts/lumasave-*; do
     sh -n "$file"

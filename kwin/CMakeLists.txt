@@ -26,7 +26,9 @@ qt_add_qml_module(lumasaveqml
     SOURCES ../plasmoid/plugin/lumasavecontroller.cpp ../plasmoid/plugin/lumasavecontroller.h)
 target_link_libraries(lumasaveqml PRIVATE Qt6::Core Qt6::Qml Qt6::DBus KF6::ConfigCore KF6::Screen)
 target_include_directories(lumasaveqml PRIVATE ../plasmoid/plugin)
-set_target_properties(lumasaveqmlplugin PROPERTIES INSTALL_RPATH "$ORIGIN")
+set_target_properties(lumasaveqmlplugin PROPERTIES
+    PREFIX "lib"
+    INSTALL_RPATH "$ORIGIN")
 install(TARGETS lumasaveqml lumasaveqmlplugin
     LIBRARY DESTINATION ${KDE_INSTALL_QMLDIR}/org/kde/lumasave)
 install(FILES

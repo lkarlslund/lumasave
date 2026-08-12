@@ -6,7 +6,7 @@ helper_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 default_prefix=$(CDPATH= cd -- "$helper_dir/.." && pwd)
 prefix=${LUMASAVE_PREFIX:-"$default_prefix"}
 plugin="$prefix/lib/qt6/plugins/kwin/effects/plugins/lumasave.so"
-qml_plugin="$prefix/lib/qml/org/kde/lumasave/lumasaveqmlplugin.so"
+qml_plugin="$prefix/lib/qml/org/kde/lumasave/liblumasaveqmlplugin.so"
 build_info="$prefix/share/lumasave/build-info"
 
 if [ ! -f "$plugin" ]; then
