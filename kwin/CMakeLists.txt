@@ -51,3 +51,5 @@ install(PROGRAMS ../scripts/lumasave-check DESTINATION ${KDE_INSTALL_BINDIR})
 install(DIRECTORY ../plasmoid/ DESTINATION ${KDE_INSTALL_DATADIR}/plasma/plasmoids/com.github.lkarlslund.lumasave)
 install(PROGRAMS ../plasmoid/contents/code/read-status
     DESTINATION ${KDE_INSTALL_DATADIR}/plasma/plasmoids/com.github.lkarlslund.lumasave/contents/code)
+install(PROGRAMS ../plasmoid/contents/code/settings
+    DESTINATION ${KDE_INSTALL_DATADIR}/plasma/plasmoids/com.github.lkarlslund.lumasave/contents/code)

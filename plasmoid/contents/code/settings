@@ -1,0 +1,52 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+set -eu
+
+group=Effect-lumasave
+
+read_settings() {
+    mode=$(kreadconfig6 --file kwinrc --group "$group" --key OperatingMode --default off)
+    [ "$mode" = on ] && mode=idle
+    maximum=$(kreadconfig6 --file kwinrc --group "$group" --key MaxBacklightReductionPercent --default 35)
+    battery=$(kreadconfig6 --file kwinrc --group "$group" --key BatteryOnly --default true)
+    printf '%s|%s|%s\n' "$mode" "$maximum" "$battery"
+}
+
+reconfigure() {
+    qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect lumasave >/dev/null 2>&1 || true
+}
+
+case "${1:-read}" in
+    read)
+        read_settings
+        ;;
+    mode)
+        case "${2:-}" in off|always|idle) mode=$2 ;; *) exit 2 ;; esac
+        enabled=false
+        [ "$mode" != off ] && enabled=true
+        kwriteconfig6 --file kwinrc --group "$group" --key OperatingMode "$mode"
+        kwriteconfig6 --file kwinrc --group "$group" --key Enabled "$enabled"
+        kwriteconfig6 --file kwinrc --group Plugins --key lumasaveEnabled "$enabled"
+        if [ "$enabled" = true ]; then
+            qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect lumasave >/dev/null 2>&1 || true
+        fi
+        reconfigure
+        [ "$enabled" = false ] && qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect lumasave >/dev/null 2>&1 || true
+        read_settings
+        ;;
+    maximum)
+        value=${2:-}
+        case "$value" in ''|*[!0-9]*) exit 2 ;; esac
+        [ "$value" -ge 0 ] && [ "$value" -le 75 ] || exit 2
+        kwriteconfig6 --file kwinrc --group "$group" --key MaxBacklightReductionPercent "$value"
+        reconfigure
+        read_settings
+        ;;
+    battery)
+        case "${2:-}" in true|false) value=$2 ;; *) exit 2 ;; esac
+        kwriteconfig6 --file kwinrc --group "$group" --key BatteryOnly "$value"
+        reconfigure
+        read_settings
+        ;;
+    *) exit 2 ;;
+esac

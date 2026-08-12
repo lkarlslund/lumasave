@@ -12,6 +12,10 @@ PlasmoidItem {
 
     property var status: ({mode: "off", state: "unavailable", reductionPercent: 0})
     property bool available: false
+    property int configuredMaximum: 35
+    property bool configuredBatteryOnly: true
+    property bool updatingControls: false
+    readonly property string helperPath: decodeURIComponent(Qt.resolvedUrl("../code/settings").toString().replace("file://", ""))
     readonly property int reduction: Number(status.reductionPercent || 0)
     readonly property string compactText: available && status.state === "saving" ? "−" + reduction + "%" : "Luma"
     readonly property string stateText: {
@@ -37,6 +41,10 @@ PlasmoidItem {
         return remaining ? i18n("%1 h %2 min", hours, remaining) : i18np("%1 hour", "%1 hours", hours)
     }
 
+    function backlightHours(seconds) {
+        return (Number(seconds || 0) / 3600).toLocaleString(Qt.locale(), "f", 2) + " h"
+    }
+
     function consume(output) {
         try {
             status = JSON.parse(output.trim().split("\n").pop())
@@ -44,6 +52,19 @@ PlasmoidItem {
         } catch (error) {
             available = false
         }
+    }
+
+    function consumeSettings(output) {
+        const fields = output.trim().split("\n").pop().split("|")
+        if (fields.length !== 3) return
+        updatingControls = true
+        configuredMaximum = Number(fields[1])
+        configuredBatteryOnly = fields[2] === "true"
+        updatingControls = false
+    }
+
+    function changeSetting(arguments_) {
+        settingsWriter.connectSource(helperPath + " " + arguments_)
     }
 
     Plasmoid.title: i18n("LumaSave")
@@ -61,6 +82,25 @@ PlasmoidItem {
         onNewData: function(sourceName, data) {
             if (data["exit code"] === 0 && data.stdout !== undefined) root.consume(data.stdout)
             else root.available = false
+        }
+    }
+
+    Plasma5Support.DataSource {
+        id: settingsReader
+        engine: "executable"
+        connectedSources: [root.helperPath + " read"]
+        interval: 5000
+        onNewData: function(sourceName, data) {
+            if (data["exit code"] === 0 && data.stdout !== undefined) root.consumeSettings(data.stdout)
+        }
+    }
+
+    Plasma5Support.DataSource {
+        id: settingsWriter
+        engine: "executable"
+        onNewData: function(sourceName, data) {
+            disconnectSource(sourceName)
+            if (data["exit code"] === 0 && data.stdout !== undefined) root.consumeSettings(data.stdout)
         }
     }
 
@@ -90,13 +130,59 @@ PlasmoidItem {
     }
 
     fullRepresentation: Item {
-        implicitWidth: Kirigami.Units.gridUnit * 19
+        implicitWidth: Kirigami.Units.gridUnit * 15
         implicitHeight: details.implicitHeight + Kirigami.Units.largeSpacing * 2
         ColumnLayout {
             id: details
             anchors { left: parent.left; right: parent.right; top: parent.top; margins: Kirigami.Units.largeSpacing }
             spacing: Kirigami.Units.smallSpacing
             PlasmaComponents3.Label { text: root.stateText; font.weight: Font.DemiBold; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            Kirigami.Separator { Layout.fillWidth: true }
+            PlasmaComponents3.Label { text: i18n("Quick Settings"); font.weight: Font.DemiBold }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 0
+                PlasmaComponents3.Button {
+                    text: i18n("Off")
+                    checkable: true
+                    checked: root.status.mode === "off"
+                    Layout.fillWidth: true
+                    onClicked: root.changeSetting("mode off")
+                }
+                PlasmaComponents3.Button {
+                    text: i18n("On")
+                    checkable: true
+                    checked: root.status.mode === "always"
+                    Layout.fillWidth: true
+                    onClicked: root.changeSetting("mode always")
+                }
+                PlasmaComponents3.Button {
+                    text: i18n("Idle")
+                    checkable: true
+                    checked: root.status.mode === "idle"
+                    Layout.fillWidth: true
+                    onClicked: root.changeSetting("mode idle")
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                PlasmaComponents3.Label { text: i18n("Maximum reduction"); Layout.fillWidth: true }
+                PlasmaComponents3.SpinBox {
+                    id: maximumReduction
+                    from: 0
+                    to: 75
+                    value: root.configuredMaximum
+                    editable: true
+                    textFromValue: function(value, locale) { return value + "%" }
+                    valueFromText: function(text, locale) { return Number(text.replace("%", "")) }
+                    onValueModified: root.changeSetting("maximum " + value)
+                }
+            }
+            PlasmaComponents3.CheckBox {
+                text: i18n("Only while running on battery")
+                checked: root.configuredBatteryOnly
+                onToggled: if (!root.updatingControls) root.changeSetting("battery " + (checked ? "true" : "false"))
+            }
             Kirigami.Separator { Layout.fillWidth: true }
             GridLayout {
                 columns: 2
@@ -108,14 +194,14 @@ PlasmoidItem {
                 PlasmaComponents3.Label { text: Number(root.status.userBrightnessPercent || 0) + "%"; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
                 PlasmaComponents3.Label { text: i18n("Effective backlight"); opacity: 0.65 }
                 PlasmaComponents3.Label { text: Number(root.status.effectiveBrightnessPercent || 0) + "%"; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                PlasmaComponents3.Label { text: i18n("Average while enabled today"); opacity: 0.65 }
+                PlasmaComponents3.Label { text: i18n("Today's average"); opacity: 0.65 }
                 PlasmaComponents3.Label { text: Number(root.status.todayAverageReductionPercent || 0).toLocaleString(Qt.locale(), "f", 1) + "%"; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                PlasmaComponents3.Label { text: i18n("Equivalent today"); opacity: 0.65 }
-                PlasmaComponents3.Label { text: root.duration(root.status.todayEquivalentFullReductionSeconds); Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                PlasmaComponents3.Label { text: i18n("All-time while enabled"); opacity: 0.65 }
+                PlasmaComponents3.Label { text: i18n("Saved today"); opacity: 0.65 }
+                PlasmaComponents3.Label { text: root.backlightHours(root.status.todayEquivalentFullReductionSeconds); Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
+                PlasmaComponents3.Label { text: i18n("All-time average"); opacity: 0.65 }
                 PlasmaComponents3.Label { text: Number(root.status.allTimeAverageReductionPercent || 0).toLocaleString(Qt.locale(), "f", 1) + "%"; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                PlasmaComponents3.Label { text: i18n("All-time equivalent"); opacity: 0.65 }
-                PlasmaComponents3.Label { text: root.duration(root.status.allTimeEquivalentFullReductionSeconds); Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
+                PlasmaComponents3.Label { text: i18n("Saved all-time"); opacity: 0.65 }
+                PlasmaComponents3.Label { text: root.backlightHours(root.status.allTimeEquivalentFullReductionSeconds); Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
             }
             PlasmaComponents3.Button {
                 text: i18n("Configure LumaSave…")
@@ -125,7 +211,7 @@ PlasmoidItem {
             }
             PlasmaComponents3.Label {
                 Layout.fillWidth: true
-                text: i18n("Reduction exposure is time weighted; it is not an estimate of watts or battery life.")
+                text: i18n("Saved values are full-backlight-equivalent hours (reduction × time), not estimates of watts or battery life.")
                 opacity: 0.65
                 font.pixelSize: Math.round(Kirigami.Units.gridUnit * 0.65)
                 wrapMode: Text.WordWrap
