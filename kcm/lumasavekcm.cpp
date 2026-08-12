@@ -6,6 +6,7 @@
 #include <KSharedConfig>
 #include <QCheckBox>
 #include <QDBusInterface>
+#include <QDir>
 #include <QFormLayout>
 #include <QLabel>
 #include <QMessageBox>
@@ -95,7 +96,9 @@ void LumaSaveKcm::defaults()
 
 void LumaSaveKcm::launchCalibration()
 {
-    const QString program = QStandardPaths::findExecutable(QStringLiteral("lumasave-calibrate-preview"));
+    QStringList searchPaths{QDir::homePath() + QStringLiteral("/.local/bin")};
+    searchPaths.append(QString::fromLocal8Bit(qgetenv("PATH")).split(QLatin1Char(':')));
+    const QString program = QStandardPaths::findExecutable(QStringLiteral("lumasave-calibrate-preview"), searchPaths);
     if (program.isEmpty() || !QProcess::startDetached(program)) {
         QMessageBox::critical(widget(), tr("LumaSave Calibration"), tr("The calibration helper could not be started."));
     }

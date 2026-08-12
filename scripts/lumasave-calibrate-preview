@@ -6,6 +6,9 @@ effect_name=lumasave_calibration_live
 effect_dir="$HOME/.local/lib/qt6/plugins/kwin/effects/plugins"
 effect_file="$effect_dir/$effect_name.so"
 source_effect="$effect_dir/lumasave.so"
+helper_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+calibrator="$helper_dir/lumasave-calibrate"
+production_was_loaded=false
 
 cleanup() {
     trap - EXIT INT TERM
@@ -18,6 +21,9 @@ cleanup() {
         kwriteconfig6 --file kwinrc --group Effect-lumasave --key "$key" --delete ''
     done
     if [ -f "$effect_file" ]; then gio trash "$effect_file" 2>/dev/null || true; fi
+    if [ "$production_was_loaded" = true ]; then
+        qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect lumasave >/dev/null 2>&1 || true
+    fi
 }
 trap cleanup EXIT INT TERM
 
@@ -25,12 +31,21 @@ if [ ! -f "$source_effect" ]; then
     kdialog --error "The LumaSave KWin effect is not installed." --title "LumaSave Calibration"
     exit 1
 fi
+if [ ! -x "$calibrator" ]; then
+    kdialog --error "The LumaSave calibration application is not installed." --title "LumaSave Calibration"
+    exit 1
+fi
+if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadedEffects \
+    | tr ' ' '\n' | grep -Fxq lumasave; then
+    production_was_loaded=true
+    qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect lumasave >/dev/null
+fi
 cp "$source_effect" "$effect_file"
 kwriteconfig6 --file kwinrc --group Effect-lumasave --key CalibrationMode true
 kwriteconfig6 --file kwinrc --group Effect-lumasave --key CalibrationActive false
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect "$effect_name" >/dev/null
 set +e
-LUMASAVE_CALIBRATION_EFFECT="$effect_name" lumasave-calibrate
+LUMASAVE_CALIBRATION_EFFECT="$effect_name" "$calibrator"
 status=$?
 set -e
 cleanup
@@ -45,3 +60,4 @@ kwriteconfig6 --file kwinrc --group Effect-lumasave --key ShadowDetailPercent "$
 kwriteconfig6 --file kwinrc --group Effect-lumasave --key HighlightProtectionPercent "$(read_value highlightProtection 70)"
 kwriteconfig6 --file kwinrc --group Effect-lumasave --key ColorIntensityPercent "$(read_value colorIntensity 100)"
 kwriteconfig6 --file kwinrc --group Effect-lumasave --key MaxBacklightReductionPercent "$(read_value maxReduction 10)"
+qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect lumasave >/dev/null 2>&1 || true
