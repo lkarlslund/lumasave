@@ -84,7 +84,7 @@ void LumaSaveEffect::readConfig()
         m_profileHighlight[i] = std::clamp(group.readEntry(prefix + QStringLiteral("HighlightProtectionPercent"), 70) / 100.0f, 0.0f, 1.0f);
         m_profileColor[i] = std::clamp(group.readEntry(prefix + QStringLiteral("ColorIntensityPercent"), 100) / 100.0f, 0.8f, 1.2f);
     }
-    m_calibrationMode = group.readEntry("CalibrationMode", false);
+    m_calibrationMode = m_operatingMode == QLatin1String("calibrating");
     m_calibrationActive = group.readEntry("CalibrationActive", false);
     m_calibrationReductionPercent = std::clamp(group.readEntry("CalibrationReductionPercent", 10), 0, 60);
     if (m_calibrationMode) {

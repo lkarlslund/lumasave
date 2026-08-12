@@ -15,7 +15,6 @@ CalibrationController::CalibrationController(QObject *parent)
     , m_originalBrightness(readBrightnessProperty("Brightness"))
     , m_maximumBrightness(readBrightnessProperty("MaxBrightness"))
 {
-    writeSetting(QStringLiteral("CalibrationMode"), true);
     writeSetting(QStringLiteral("CalibrationActive"), false);
     reconfigure();
 }
