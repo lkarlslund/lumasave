@@ -463,14 +463,18 @@ void LumaSaveEffect::accountUsage()
     m_sessionSeconds += seconds;
     if (m_active && !m_calibrationMode) {
         m_activeSeconds += seconds;
-        m_reductionSeconds += seconds * m_currentReduction;
+        m_reductionSeconds += seconds * lumasave_full_scale_backlight_saving(
+            float(m_userBrightness), m_currentReduction);
     }
 }
 
 void LumaSaveEffect::persistStatistics()
 {
     accountUsage();
-    QSettings stats(QSettings::IniFormat, QSettings::UserScope, QStringLiteral("LumaSave"), QStringLiteral("Statistics"));
+    // V2 stores full-scale exposure saved. V1 stored reduction relative to
+    // the requested brightness and cannot be converted without historical
+    // brightness data, so it is deliberately kept separate and ignored.
+    QSettings stats(QSettings::IniFormat, QSettings::UserScope, QStringLiteral("LumaSave"), QStringLiteral("StatisticsV2"));
     const QString day = QDate::currentDate().toString(Qt::ISODate);
     stats.beginGroup(day);
     stats.setValue(QStringLiteral("SessionSeconds"), stats.value(QStringLiteral("SessionSeconds")).toDouble() + m_sessionSeconds - m_persistedSessionSeconds);
@@ -507,7 +511,7 @@ QString LumaSaveEffect::statusJson()
         }
     }
     const double average = m_sessionSeconds > 0.0 ? 100.0 * m_reductionSeconds / m_sessionSeconds : 0.0;
-    QSettings stats(QSettings::IniFormat, QSettings::UserScope, QStringLiteral("LumaSave"), QStringLiteral("Statistics"));
+    QSettings stats(QSettings::IniFormat, QSettings::UserScope, QStringLiteral("LumaSave"), QStringLiteral("StatisticsV2"));
     const QString today = QDate::currentDate().toString(Qt::ISODate);
     double todaySession = 0.0;
     double todayActive = 0.0;

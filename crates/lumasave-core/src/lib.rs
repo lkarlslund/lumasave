@@ -420,6 +420,21 @@ pub fn linear_luminance(rgb: [f32; 3]) -> f32 {
     0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
 }
 
+/// Fraction of the panel's full backlight range removed by LumaSave.
+/// For example, reducing a user-selected 60% level by 25% saves 15% of
+/// full-scale backlight exposure, not 25%.
+pub fn full_scale_backlight_saving(user_brightness: f32, relative_reduction: f32) -> f32 {
+    user_brightness.clamp(0.0, 1.0) * relative_reduction.clamp(0.0, 1.0)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn lumasave_full_scale_backlight_saving(
+    user_brightness: f32,
+    relative_reduction: f32,
+) -> f32 {
+    full_scale_backlight_saving(user_brightness, relative_reduction)
+}
+
 /// Apply the luminance curve while approximately retaining chromaticity.
 /// Returns linear RGB and whether gamut compression was required.
 pub fn compensate_rgb(linear_rgb: [f32; 3], scale: f32, black_threshold: f32) -> ([f32; 3], bool) {
@@ -488,6 +503,13 @@ mod tests {
                 .set_max_backlight_reduction_percent(f32::NAN)
                 .is_err()
         );
+    }
+
+    #[test]
+    fn saved_backlight_exposure_accounts_for_requested_brightness() {
+        assert!((full_scale_backlight_saving(0.60, 0.24) - 0.144).abs() < 1e-6);
+        assert!((full_scale_backlight_saving(1.0, 0.24) - 0.24).abs() < 1e-6);
+        assert_eq!(full_scale_backlight_saving(0.0, 0.75), 0.0);
     }
 
     #[test]

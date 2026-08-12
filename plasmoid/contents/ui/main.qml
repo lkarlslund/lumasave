@@ -217,7 +217,7 @@ PlasmoidItem {
                 Layout.fillWidth: true
                 PlasmaComponents3.Label {
                     Layout.fillWidth: true
-                    text: i18n("Saved = reduction × time")
+                    text: i18n("Saved = brightness × reduction × time")
                     opacity: 0.65
                     font.pixelSize: Math.round(Kirigami.Units.gridUnit * 0.65)
                 }

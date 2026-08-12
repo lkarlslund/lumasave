@@ -49,6 +49,11 @@ watt or battery-life saving: panel efficiency is hardware-specific. Pixels at
 the output edges are excluded from analysis so panel indicators cannot feed
 back into the selected reduction.
 
+Saved backlight-hours are full-scale exposure: requested brightness × relative
+LumaSave reduction × time. Thus one hour at 60% brightness with a 25% LumaSave
+reduction records 0.15 saved backlight-hours. This is a physical backlight-level
+metric, not an energy estimate because panel power curves differ by hardware.
+
 To remove it:
 
 ```sh

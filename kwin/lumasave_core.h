@@ -10,3 +10,7 @@ extern "C" float lumasave_decide_backlight_scale(
     float blackThreshold,
     float maxRmsError,
     float maxP99Error);
+
+extern "C" float lumasave_full_scale_backlight_saving(
+    float userBrightness,
+    float relativeReduction);
