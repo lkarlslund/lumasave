@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+NoDisplay=true
+X-KDE-AliasFor=systemsettings
+Exec=systemsettings kcm_lumasave
+Icon=preferences-system-power-management
+Name=LumaSave
+Comment=Content-adaptive display power saving
+X-KDE-System-Settings-Parent-Category=display
+X-KDE-Weight=90

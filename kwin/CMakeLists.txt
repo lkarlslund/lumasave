@@ -13,7 +13,7 @@ include(KDEInstallDirs6)
 include(KDECMakeSettings)
 
 find_package(Qt6 6.7 REQUIRED COMPONENTS Core Gui Quick Widgets)
-find_package(KF6 6.0 REQUIRED COMPONENTS CoreAddons Config)
+find_package(KF6 6.0 REQUIRED COMPONENTS CoreAddons Config KCMUtils)
 find_package(KWin 6.7 REQUIRED)
 find_package(Qt6 6.7 REQUIRED COMPONENTS DBus)
 
@@ -39,3 +39,11 @@ qt_add_executable(lumasave-calibrate
     ../tools/calibration/calibration.qrc)
 target_link_libraries(lumasave-calibrate PRIVATE Qt6::Core Qt6::DBus Qt6::Gui Qt6::Quick)
 install(TARGETS lumasave-calibrate RUNTIME DESTINATION ${KDE_INSTALL_BINDIR})
+
+kcoreaddons_add_plugin(kcm_lumasave
+    SOURCES ../kcm/lumasavekcm.cpp
+    INSTALL_NAMESPACE "plasma/kcms/systemsettings")
+target_include_directories(kcm_lumasave PRIVATE ../kcm)
+target_link_libraries(kcm_lumasave PRIVATE KF6::KCMUtils KF6::ConfigCore Qt6::DBus Qt6::Widgets)
+install(FILES ../kcm/kcm_lumasave.desktop DESTINATION ${KDE_INSTALL_APPDIR})
+install(PROGRAMS ../scripts/lumasave-calibrate-preview DESTINATION ${KDE_INSTALL_BINDIR})

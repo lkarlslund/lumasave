@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: MIT
+#pragma once
+
+#include <KCModule>
+
+class QCheckBox;
+class QSpinBox;
+
+class LumaSaveKcm final : public KCModule
+{
+    Q_OBJECT
+public:
+    LumaSaveKcm(QObject *parent, const KPluginMetaData &data);
+    void load() override;
+    void save() override;
+    void defaults() override;
+private:
+    void launchCalibration();
+    void settingsChanged();
+    QCheckBox *m_enabled;
+    QCheckBox *m_batteryOnly;
+    QSpinBox *m_idleSeconds;
+    QSpinBox *m_maxReduction;
+};

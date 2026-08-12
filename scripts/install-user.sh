@@ -12,6 +12,10 @@ cmake -S "$project_dir/kwin" -B "$build_dir" \
 cmake --build "$build_dir" --parallel
 cmake --install "$build_dir"
 
+# Refresh the per-user service cache so System Settings discovers the KCM
+# immediately without a session restart.
+kbuildsycoca6 >/dev/null
+
 mkdir -p "$HOME/.config/environment.d"
 ln -sfn "$project_dir/config/90-lumasave.conf" "$HOME/.config/environment.d/90-lumasave.conf"
 

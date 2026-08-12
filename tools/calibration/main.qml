@@ -15,7 +15,7 @@ ApplicationWindow {
     color: "#202124"
 
     property bool compensated: calibrationBackend.compensated
-    property bool alternating: true
+    property bool alternating: false
     property bool deliberateClose: false
     property real reduction: maximumReduction.value / 100
     property real scale: 1 - reduction
@@ -160,7 +160,7 @@ ApplicationWindow {
                 Slider { id: colorIntensity; from: 80; to: 120; stepSize: 1; value: 100; Layout.fillWidth: true; onMoved: if (root.compensated) root.setMode(true) }
                 Label { text: "Maximum reduction  " + Math.round(maximumReduction.value) + "%" }
                 Slider {
-                    id: maximumReduction; from: 0; to: 60; stepSize: 1; value: 10; Layout.fillWidth: true
+                    id: maximumReduction; from: 0; to: 30; stepSize: 1; value: 10; Layout.fillWidth: true
                     onMoved: if (root.compensated) root.setMode(true)
                 }
                 Label { text: "A/B interval  " + (interval.value / 1000).toFixed(1) + " s" }

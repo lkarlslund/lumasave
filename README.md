@@ -29,6 +29,12 @@ No system files or administrator privileges are needed. Log out and back in
 once after the first installation so KWin inherits the local Qt plugin path.
 Later rebuilds replace the plugin under `~/.local`.
 
+After installation, open **System Settings → Display & Monitor → LumaSave**.
+The page enables the effect, controls its idle delay and maximum backlight
+reduction, and launches the panel calibration UI. Calibration starts paused in
+normal mode and only changes the full desktop when the user explicitly selects
+mode B; its preview reduction is capped at 30% for safety.
+
 To remove it:
 
 ```sh

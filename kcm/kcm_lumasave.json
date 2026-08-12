@@ -1,0 +1,13 @@
+{
+  "KPlugin": {
+    "Name": "LumaSave",
+    "Description": "Content-adaptive display power saving",
+    "Icon": "preferences-system-power-management",
+    "Category": "Display and Monitor",
+    "License": "MIT",
+    "Version": "0.1.0",
+    "Authors": [{ "Name": "Lars Karlslund" }]
+  },
+  "X-KDE-System-Settings-Parent-Category": "display",
+  "X-KDE-Weight": 90
+}
