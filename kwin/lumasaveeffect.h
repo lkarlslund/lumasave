@@ -47,6 +47,7 @@ private:
     std::unique_ptr<GLShader> m_shader;
     std::unordered_set<EffectWindow *> m_windows;
     bool m_enabled = false;
+    QString m_operatingMode = QStringLiteral("off");
     bool m_batteryOnly = true;
     bool m_calibrationMode = false;
     bool m_calibrationActive = false;

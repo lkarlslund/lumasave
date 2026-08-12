@@ -67,6 +67,7 @@ void LumaSaveEffect::readConfig()
 {
     const KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-lumasave"));
     m_enabled = group.readEntry("Enabled", false);
+    m_operatingMode = group.readEntry("OperatingMode", m_enabled ? QStringLiteral("on") : QStringLiteral("off"));
     m_idleSeconds = std::clamp(group.readEntry("IdleSeconds", 15), 3, 300);
     m_maxReductionPercent = std::clamp(group.readEntry("MaxBacklightReductionPercent", 35), 0, 75);
     m_batteryOnly = group.readEntry("BatteryOnly", true);
@@ -105,7 +106,7 @@ void LumaSaveEffect::reconfigure(ReconfigureFlags)
         return;
     }
     armIdleDetector();
-    if (!m_enabled || m_maxReductionPercent == 0) {
+    if (!m_enabled || m_operatingMode != QLatin1String("on") || m_maxReductionPercent == 0) {
         deactivate();
     } else if (m_active && previousMaximum != m_maxReductionPercent) {
         deactivate();
@@ -123,7 +124,7 @@ void LumaSaveEffect::armIdleDetector()
 
 void LumaSaveEffect::requestAnalysis()
 {
-    if (m_calibrationMode || !m_enabled || m_maxReductionPercent == 0 || m_active
+    if (m_calibrationMode || m_operatingMode != QLatin1String("on") || !m_enabled || m_maxReductionPercent == 0 || m_active
         || (m_batteryOnly && !onBattery())
         || effects->isEffectActive(QStringLiteral("screenshot"))) {
         qInfo() << "LumaSave idle ignored" << m_enabled << m_maxReductionPercent << m_active;

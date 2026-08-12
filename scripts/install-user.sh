@@ -27,6 +27,7 @@ mkdir -p "$HOME/.local/share/lumasave"
 
 kwriteconfig6 --file kwinrc --group Plugins --key lumasaveEnabled false
 kwriteconfig6 --file kwinrc --group Effect-lumasave --key Enabled false
+kwriteconfig6 --file kwinrc --group Effect-lumasave --key OperatingMode off
 
 echo "LumaSave installed disabled for this user. Log out and back in once so KWin discovers it."
 echo "After Plasma/KWin upgrades, run ~/.local/bin/lumasave-check and rebuild if requested."

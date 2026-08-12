@@ -81,6 +81,7 @@ void LumaSaveKcm::save()
     auto config = KSharedConfig::openConfig(QStringLiteral("kwinrc"));
     KConfigGroup group(config, QStringLiteral("Effect-lumasave"));
     group.writeEntry("Enabled", m_enabled->isChecked());
+    group.writeEntry("OperatingMode", m_enabled->isChecked() ? QStringLiteral("on") : QStringLiteral("off"));
     group.writeEntry("IdleSeconds", m_idleSeconds->value());
     group.writeEntry("MaxBacklightReductionPercent", m_maxReduction->value());
     group.writeEntry("BatteryOnly", m_batteryOnly->isChecked());
