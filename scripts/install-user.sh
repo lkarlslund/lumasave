@@ -17,9 +17,16 @@ cmake --install "$build_dir"
 kbuildsycoca6 >/dev/null
 
 mkdir -p "$HOME/.config/environment.d"
-ln -sfn "$project_dir/config/90-lumasave.conf" "$HOME/.config/environment.d/90-lumasave.conf"
+install -m644 "$project_dir/config/90-lumasave.conf" "$HOME/.config/environment.d/90-lumasave.conf"
+
+mkdir -p "$HOME/.local/share/lumasave"
+{
+    printf 'kwin=%s\n' "$(kwin_wayland --version 2>/dev/null | head -n 1 || printf unknown)"
+    printf 'source=%s\n' "$(git -C "$project_dir" describe --always --dirty 2>/dev/null || printf release-tarball)"
+} >"$HOME/.local/share/lumasave/build-info"
 
 kwriteconfig6 --file kwinrc --group Plugins --key lumasaveEnabled false
 kwriteconfig6 --file kwinrc --group Effect-lumasave --key Enabled false
 
 echo "LumaSave installed disabled for this user. Log out and back in once so KWin discovers it."
+echo "After Plasma/KWin upgrades, run ~/.local/bin/lumasave-check and rebuild if requested."

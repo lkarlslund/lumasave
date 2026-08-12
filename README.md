@@ -22,12 +22,17 @@ power measurements are validated.
 ## User-local installation
 
 ```sh
-./scripts/install-user.sh
+./install.sh
 ```
 
 No system files or administrator privileges are needed. Log out and back in
 once after the first installation so KWin inherits the local Qt plugin path.
 Later rebuilds replace the plugin under `~/.local`.
+
+This installer is fully rootless, but it compiles from source on the target
+machine because native KWin plugins do not have a stable cross-version ABI.
+After a Plasma/KWin upgrade, run `~/.local/bin/lumasave-check`; if it reports a
+version mismatch, rerun `./install.sh` before enabling the effect.
 
 After installation, open **System Settings → Display & Monitor → LumaSave**.
 The page enables the effect, controls its idle delay and maximum backlight
@@ -40,6 +45,13 @@ To remove it:
 ```sh
 ./scripts/uninstall-user.sh
 ```
+
+## Arch Linux package
+
+An Arch `PKGBUILD` is provided in `packaging/arch`. It builds from source
+against the installed KWin and produces a normal system package. Release tags
+use the form `v0.1.0`. Native binary plugin artifacts are intentionally not
+published for use across different KWin releases.
 
 ## Simulator
 

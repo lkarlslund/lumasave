@@ -1,0 +1,33 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+set -eu
+
+helper_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+default_prefix=$(CDPATH= cd -- "$helper_dir/.." && pwd)
+prefix=${LUMASAVE_PREFIX:-"$default_prefix"}
+plugin="$prefix/lib/qt6/plugins/kwin/effects/plugins/lumasave.so"
+build_info="$prefix/share/lumasave/build-info"
+
+if [ ! -f "$plugin" ]; then
+    echo "LumaSave effect not found at $plugin" >&2
+    exit 1
+fi
+if ldd "$plugin" 2>/dev/null | grep -q 'not found'; then
+    echo "LumaSave has unresolved libraries; rebuild it against the current Plasma/KWin installation." >&2
+    ldd "$plugin" | grep 'not found' >&2
+    exit 1
+fi
+
+if [ -f "$build_info" ]; then
+    built_kwin=$(sed -n 's/^kwin=//p' "$build_info")
+    current_kwin=$(kwin_wayland --version 2>/dev/null | head -n 1 || true)
+    if [ -n "$built_kwin" ] && [ -n "$current_kwin" ] && [ "$built_kwin" != "$current_kwin" ]; then
+        echo "KWin changed since LumaSave was built:" >&2
+        echo "  built against: $built_kwin" >&2
+        echo "  installed now: $current_kwin" >&2
+        echo "Re-run install.sh before enabling LumaSave." >&2
+        exit 2
+    fi
+fi
+
+echo "LumaSave matches the currently installed libraries."

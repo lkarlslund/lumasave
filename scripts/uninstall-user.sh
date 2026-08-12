@@ -9,6 +9,7 @@ rm -f "$HOME/.local/lib/qt6/plugins/kwin/effects/plugins/lumasave.so"
 rm -f "$HOME/.local/lib/qt6/plugins/plasma/kcms/systemsettings/kcm_lumasave.so"
 rm -f "$HOME/.local/bin/lumasave-calibrate"
 rm -f "$HOME/.local/bin/lumasave-calibrate-preview"
+rm -f "$HOME/.local/bin/lumasave-check"
 rm -f "$HOME/.local/share/applications/kcm_lumasave.desktop"
 rm -f "$HOME/.config/environment.d/90-lumasave.conf"
 kbuildsycoca6 >/dev/null
