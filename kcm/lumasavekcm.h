@@ -17,6 +17,8 @@ public:
 private:
     void launchCalibration();
     void clearCalibration();
+    bool powerDevilDimmingEnabled() const;
+    void offerToDisablePowerDevilDimming();
     void settingsChanged();
     QCheckBox *m_enabled;
     QCheckBox *m_batteryOnly;

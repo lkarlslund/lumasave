@@ -78,6 +78,8 @@ void LumaSaveKcm::load()
 
 void LumaSaveKcm::save()
 {
+    const bool enabling = m_enabled->isChecked();
+    if (enabling && powerDevilDimmingEnabled()) offerToDisablePowerDevilDimming();
     auto config = KSharedConfig::openConfig(QStringLiteral("kwinrc"));
     KConfigGroup group(config, QStringLiteral("Effect-lumasave"));
     group.writeEntry("Enabled", m_enabled->isChecked());
@@ -93,6 +95,37 @@ void LumaSaveKcm::save()
     effects.call(QStringLiteral("reconfigureEffect"), QStringLiteral("lumasave"));
     if (!m_enabled->isChecked()) effects.call(QStringLiteral("unloadEffect"), QStringLiteral("lumasave"));
     setNeedsSave(false);
+}
+
+bool LumaSaveKcm::powerDevilDimmingEnabled() const
+{
+    const auto config = KSharedConfig::openConfig(QStringLiteral("powerdevilrc"));
+    for (const QString &profile : {QStringLiteral("AC"), QStringLiteral("Battery"), QStringLiteral("LowBattery")}) {
+        const KConfigGroup profileGroup(config, profile);
+        const KConfigGroup display(&profileGroup, QStringLiteral("Display"));
+        // PowerDevil's built-in default is true when the entry is absent.
+        if (display.readEntry("DimDisplayWhenIdle", true)) return true;
+    }
+    return false;
+}
+
+void LumaSaveKcm::offerToDisablePowerDevilDimming()
+{
+    const auto answer = QMessageBox::warning(widget(), tr("Conflicting Automatic Dimming"),
+        tr("KDE's built-in ‘Dim screen when inactive’ is enabled. It can stack with LumaSave and produce unexpected brightness changes.\n\nDisable KDE automatic dimming for AC, Battery, and Low Battery profiles? Screen-off and suspend settings will not be changed."),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+    if (answer != QMessageBox::Yes) return;
+    auto config = KSharedConfig::openConfig(QStringLiteral("powerdevilrc"));
+    for (const QString &profile : {QStringLiteral("AC"), QStringLiteral("Battery"), QStringLiteral("LowBattery")}) {
+        KConfigGroup profileGroup(config, profile);
+        KConfigGroup display(&profileGroup, QStringLiteral("Display"));
+        display.writeEntry("DimDisplayWhenIdle", false);
+    }
+    config->sync();
+    QDBusInterface powerDevil(QStringLiteral("org.kde.Solid.PowerManagement"),
+                              QStringLiteral("/org/kde/Solid/PowerManagement"),
+                              QStringLiteral("org.kde.Solid.PowerManagement"));
+    powerDevil.call(QStringLiteral("reparseConfiguration"));
 }
 
 void LumaSaveKcm::defaults()

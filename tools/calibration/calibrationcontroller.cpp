@@ -16,6 +16,7 @@ CalibrationController::CalibrationController(QObject *parent)
     , m_originalBrightness(readBrightnessProperty("Brightness"))
     , m_maximumBrightness(readBrightnessProperty("MaxBrightness"))
 {
+    writeSetting(QStringLiteral("OperatingMode"), QStringLiteral("calibrating"));
     writeSetting(QStringLiteral("CalibrationActive"), false);
     reconfigure();
 }
@@ -56,6 +57,10 @@ void CalibrationController::writeSetting(const QString &key, const QVariant &val
 void CalibrationController::reconfigure()
 {
     if (m_effectName.isEmpty()) return;
+    // The dialog owns brightness and shader state for its entire lifetime.
+    // Reassert the mode before every preview update in case another settings
+    // writer touched kwinrc while calibration was open.
+    if (!m_restored) writeSetting(QStringLiteral("OperatingMode"), QStringLiteral("calibrating"));
     QDBusInterface effects(QStringLiteral("org.kde.KWin"), QStringLiteral("/Effects"), QStringLiteral("org.kde.kwin.Effects"));
     effects.call(QStringLiteral("reconfigureEffect"), m_effectName);
 }

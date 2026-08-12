@@ -172,13 +172,28 @@ ApplicationWindow {
             GridLayout {
                 Layout.fillWidth: true
                 columns: 2
-                Button {
+                RowLayout {
                     Layout.columnSpan: 2; Layout.fillWidth: true
-                    text: root.comparisonState === 0 ? "Auto A/B" : (root.comparisonState === 1 ? "A · Normal" : "B · Compensated")
-                    icon.name: root.comparisonState === 0 ? "media-playlist-repeat" : (root.comparisonState === 1 ? "brightness-high" : "preferences-desktop-color")
-                    onClicked: root.selectComparison((root.comparisonState + 1) % 3)
-                    ToolTip.visible: hovered
-                    ToolTip.text: "Click to cycle: Auto A/B → A Normal → B Compensated"
+                    spacing: 0
+                    ButtonGroup { id: comparisonGroup; exclusive: true }
+                    Button {
+                        Layout.fillWidth: true; text: "Auto"; checkable: true
+                        checked: root.comparisonState === 0; highlighted: checked
+                        ButtonGroup.group: comparisonGroup
+                        onClicked: root.selectComparison(0)
+                    }
+                    Button {
+                        Layout.fillWidth: true; text: "A · Normal"; checkable: true
+                        checked: root.comparisonState === 1; highlighted: checked
+                        ButtonGroup.group: comparisonGroup
+                        onClicked: root.selectComparison(1)
+                    }
+                    Button {
+                        Layout.fillWidth: true; text: "B · Compensated"; checkable: true
+                        checked: root.comparisonState === 2; highlighted: checked
+                        ButtonGroup.group: comparisonGroup
+                        onClicked: root.selectComparison(2)
+                    }
                 }
                 Button {
                     Layout.columnSpan: 2; Layout.fillWidth: true
