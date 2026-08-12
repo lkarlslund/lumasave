@@ -6,6 +6,8 @@
 #include "brightnessdevice_compat.h"
 #include "effect/effecthandler.h"
 #include "idledetector.h"
+#include "main.h"
+#include "core/outputbackend.h"
 #include "opengl/glframebuffer.h"
 #include "opengl/glshader.h"
 #include "opengl/glshadermanager.h"
@@ -85,8 +87,10 @@ void LumaSaveEffect::armIdleDetector()
 void LumaSaveEffect::requestAnalysis()
 {
     if (!m_enabled || m_maxReductionPercent == 0 || m_active) {
+        qInfo() << "LumaSave idle ignored" << m_enabled << m_maxReductionPercent << m_active;
         return;
     }
+    qInfo() << "LumaSave idle reached; requesting one-shot analysis";
     m_analysisPending = true;
     effects->addRepaintFull();
 }
@@ -96,6 +100,7 @@ void LumaSaveEffect::paintScreen(const RenderTarget &target, const RenderViewpor
 {
     effects->paintScreen(target, viewport, mask, region, screen);
     if (m_analysisPending && screen && target.framebuffer()) {
+        qInfo() << "LumaSave analyzing idle frame";
         m_analysisPending = false;
         analyze(target, viewport, screen);
     }
@@ -104,26 +109,45 @@ void LumaSaveEffect::paintScreen(const RenderTarget &target, const RenderViewpor
 void LumaSaveEffect::analyze(const RenderTarget &target, const RenderViewport &viewport, LogicalOutput *screen)
 {
     auto *output = qobject_cast<BackendOutput *>(screen);
+    if (!output) {
+        for (BackendOutput *backend : kwinApp()->outputBackend()->outputs()) {
+            if (backend->isInternal()) {
+                output = backend;
+                break;
+            }
+        }
+    }
     if (!output || !output->isInternal() || !output->brightnessDevice()) {
+        qInfo() << "LumaSave rejected output" << output
+                << (output ? output->isInternal() : false)
+                << (output ? output->brightnessDevice() : nullptr);
         return;
     }
     m_output = output;
+    m_userBrightness = output->brightnessSetting();
     connect(output, &BackendOutput::brightnessChanged, this, [this] {
         // A hotkey or Plasma slider changes brightnessSetting(). Keep that as
         // the user's new baseline and reapply only our invisible multiplier.
-        if (m_active) setBacklightScale(m_backlightScale);
-    }, Qt::UniqueConnection);
+        if (m_active && m_output
+            && !qFuzzyCompare(m_userBrightness, m_output->brightnessSetting())) {
+            m_userBrightness = m_output->brightnessSetting();
+            setBacklightScale(m_backlightScale);
+        }
+    });
     auto texture = GLTexture::allocate(GL_RGBA8, sampleSize);
     if (!texture) {
+        qInfo() << "LumaSave sample texture allocation failed";
         return;
     }
     GLFramebuffer framebuffer(texture.get());
     if (!framebuffer.valid() || !framebuffer.blitFromRenderTarget(target, viewport,
             target.transformedRect(), Rect(QPoint(), sampleSize))) {
+        qInfo() << "LumaSave frame downsample failed";
         return;
     }
     const QImage image = texture->toImage().convertToFormat(QImage::Format_RGBA8888);
     if (image.isNull()) {
+        qInfo() << "LumaSave sample readback failed";
         return;
     }
     double luminance = 0.0;
@@ -141,6 +165,7 @@ void LumaSaveEffect::analyze(const RenderTarget &target, const RenderViewport &v
     // Dark scenes can safely use more of the user's selected maximum. White scenes use none.
     const float contentFactor = std::clamp(1.0 - std::sqrt(luminance), 0.0, 1.0);
     const float reduction = (m_maxReductionPercent / 100.0f) * contentFactor;
+    qInfo() << "LumaSave sampled mean" << luminance << "reduction" << reduction;
     if (reduction >= 0.01f) {
         activate(reduction);
     }
@@ -171,7 +196,6 @@ void LumaSaveEffect::deactivate()
 {
     m_analysisPending = false;
     if (!m_active) {
-        qInfo() << "LumaSave deactivate requested while inactive";
         return;
     }
     m_active = false;
@@ -183,10 +207,12 @@ void LumaSaveEffect::deactivate()
     qInfo() << "LumaSave deactivating at user baseline"
             << (m_output ? m_output->brightnessSetting() : -1.0);
     if (m_output && m_output->brightnessDevice()) {
+        disconnect(m_output, &BackendOutput::brightnessChanged, this, nullptr);
         m_output->brightnessDevice()->setBrightness(m_output->brightnessSetting());
     }
     m_output.clear();
     m_backlightScale = 1.0f;
+    m_userBrightness = 1.0;
 }
 
 void LumaSaveEffect::redirectWindow(EffectWindow *window)
@@ -205,7 +231,7 @@ void LumaSaveEffect::forgetWindow(EffectWindow *window)
 void LumaSaveEffect::setBacklightScale(float scale)
 {
     if (!m_output || !m_output->brightnessDevice()) return;
-    m_output->brightnessDevice()->setBrightness(m_output->brightnessSetting() * scale);
+    m_output->brightnessDevice()->setBrightness(m_userBrightness * scale);
 }
 }
 

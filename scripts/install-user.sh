@@ -15,7 +15,7 @@ cmake --install "$build_dir"
 mkdir -p "$HOME/.config/environment.d"
 ln -sfn "$project_dir/config/90-lumasave.conf" "$HOME/.config/environment.d/90-lumasave.conf"
 
-kwriteconfig6 --file kwinrc --group Plugins --key lumasaveEnabled true
-kwriteconfig6 --file kwinrc --group Effect-lumasave --key Enabled true
+kwriteconfig6 --file kwinrc --group Plugins --key lumasaveEnabled false
+kwriteconfig6 --file kwinrc --group Effect-lumasave --key Enabled false
 
-echo "LumaSave installed for this user. Log out and back in once so KWin discovers it."
+echo "LumaSave installed disabled for this user. Log out and back in once so KWin discovers it."

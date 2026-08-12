@@ -49,5 +49,6 @@ private:
     int m_maxReductionPercent = 35;
     QPointer<BackendOutput> m_output;
     float m_backlightScale = 1.0f;
+    double m_userBrightness = 1.0;
 };
 }
