@@ -15,7 +15,8 @@ ApplicationWindow {
     color: "#202124"
 
     property int previewMode: calibrationBackend.previewMode
-    property bool alternating: false
+    // 0 = automatic A/B, 1 = hold A, 2 = hold B.
+    property int comparisonState: 1
     property bool deliberateClose: false
     property real reduction: maximumReduction.value / 100
     property real scale: 1 - reduction
@@ -39,7 +40,7 @@ ApplicationWindow {
     Settings { id: profile50; category: "Calibration-50"; property int perceivedBrightness: 100; property int shadowDetail: 50; property int highlightProtection: 70; property int colorIntensity: 100 }
     Settings { id: profile100; category: "Calibration-100"; property int perceivedBrightness: 100; property int shadowDetail: 50; property int highlightProtection: 70; property int colorIntensity: 100 }
 
-    Shortcut { sequence: "Space"; onActivated: setMode(root.previewMode === 0 ? 2 : 0) }
+    Shortcut { sequence: "Space"; onActivated: selectComparison(root.previewMode === 0 ? 2 : 1) }
     Shortcut { sequence: "R"; onActivated: resetDefaults() }
 
     function linearToSrgb(x) {
@@ -82,8 +83,14 @@ ApplicationWindow {
         highlightProtection.value = p.highlightProtection
         colorIntensity.value = p.colorIntensity
         profileInitialized = true
-        alternating = false
+        comparisonState = 1
         calibrationBackend.setCalibrationLevel(level)
+    }
+    function selectComparison(state) {
+        comparisonState = state
+        if (state === 1) root.setMode(0)
+        else if (state === 2) root.setMode(2)
+        else root.setMode(0)
     }
     function setMode(mode) {
         calibrationBackend.setPreviewMode(mode, reduction,
@@ -94,7 +101,7 @@ ApplicationWindow {
     }
 
     Timer {
-        running: root.alternating
+        running: root.comparisonState === 0
         repeat: true
         interval: interval.value
         onTriggered: root.setMode(root.previewMode === 0 ? 2 : 0)
@@ -165,8 +172,14 @@ ApplicationWindow {
             GridLayout {
                 Layout.fillWidth: true
                 columns: 2
-                Button { Layout.fillWidth: true; text: root.alternating ? "Pause alternating" : "Alternate A/B"; onClicked: root.alternating = !root.alternating }
-                Button { Layout.fillWidth: true; text: "Toggle A/B (Space)"; onClicked: root.setMode(root.previewMode === 0 ? 2 : 0) }
+                Button {
+                    Layout.columnSpan: 2; Layout.fillWidth: true
+                    text: root.comparisonState === 0 ? "Auto A/B" : (root.comparisonState === 1 ? "A · Normal" : "B · Compensated")
+                    icon.name: root.comparisonState === 0 ? "media-playlist-repeat" : (root.comparisonState === 1 ? "brightness-high" : "preferences-desktop-color")
+                    onClicked: root.selectComparison((root.comparisonState + 1) % 3)
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Click to cycle: Auto A/B → A Normal → B Compensated"
+                }
                 Button {
                     Layout.columnSpan: 2; Layout.fillWidth: true
                     text: pressed ? "Compensation bypassed" : "Hold to bypass compensation"
