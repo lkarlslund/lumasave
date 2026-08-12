@@ -118,8 +118,11 @@ void CalibrationController::restore()
     m_restored = true;
     if (available()) {
         writeSetting(QStringLiteral("CalibrationActive"), false);
-        if (m_previousOperatingMode == QLatin1String("on") || m_previousOperatingMode == QLatin1String("off")) {
-            writeSetting(QStringLiteral("OperatingMode"), m_previousOperatingMode);
+        QString restoreMode = m_previousOperatingMode;
+        if (restoreMode == QLatin1String("on")) restoreMode = QStringLiteral("idle");
+        if (restoreMode == QLatin1String("always") || restoreMode == QLatin1String("idle")
+            || restoreMode == QLatin1String("off")) {
+            writeSetting(QStringLiteral("OperatingMode"), restoreMode);
         }
         reconfigure();
     }

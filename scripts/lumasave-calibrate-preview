@@ -8,8 +8,9 @@ calibrator="$helper_dir/lumasave-calibrate"
 production_was_loaded=false
 enabled=$(kreadconfig6 --file kwinrc --group Effect-lumasave --key Enabled --default false)
 default_mode=off
-[ "$enabled" = true ] && default_mode=on
+[ "$enabled" = true ] && default_mode=idle
 previous_mode=$(kreadconfig6 --file kwinrc --group Effect-lumasave --key OperatingMode --default "$default_mode")
+[ "$previous_mode" = on ] && previous_mode=idle
 
 cleanup() {
     trap - EXIT INT TERM

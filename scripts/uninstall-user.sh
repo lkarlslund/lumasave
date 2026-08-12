@@ -12,6 +12,7 @@ rm -f "$HOME/.local/bin/lumasave-calibrate"
 rm -f "$HOME/.local/bin/lumasave-calibrate-preview"
 rm -f "$HOME/.local/bin/lumasave-check"
 rm -f "$HOME/.local/share/applications/kcm_lumasave.desktop"
+rm -rf "$HOME/.local/share/plasma/plasmoids/com.github.lkarlslund.lumasave"
 rm -f "$HOME/.config/environment.d/90-lumasave.conf"
 kbuildsycoca6 >/dev/null
 

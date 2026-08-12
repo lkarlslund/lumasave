@@ -48,3 +48,4 @@ target_link_libraries(kcm_lumasave PRIVATE KF6::KCMUtils KF6::ConfigCore Qt6::DB
 install(FILES ../kcm/kcm_lumasave.desktop DESTINATION ${KDE_INSTALL_APPDIR})
 install(PROGRAMS ../scripts/lumasave-calibrate-preview DESTINATION ${KDE_INSTALL_BINDIR})
 install(PROGRAMS ../scripts/lumasave-check DESTINATION ${KDE_INSTALL_BINDIR})
+install(DIRECTORY ../plasmoid/ DESTINATION ${KDE_INSTALL_DATADIR}/plasma/plasmoids/com.github.lkarlslund.lumasave)

@@ -9,7 +9,7 @@ an offline simulator, and compositor integrations. The first compositor target
 is KDE Plasma's KWin because KWin already owns both the output color pipeline
 and the physical brightness device.
 
-The native KWin plugin is intentionally thin: it performs the one-shot GPU
+The native KWin plugin is intentionally thin: it performs a small GPU
 downsample and applies the GLSL curve, while the 64-bin histogram decision is
 made by the same Rust core used by the simulator.
 
@@ -35,10 +35,19 @@ After a Plasma/KWin upgrade, run `~/.local/bin/lumasave-check`; if it reports a
 version mismatch, rerun `./install.sh` before enabling the effect.
 
 After installation, open **System Settings → Display & Monitor → LumaSave**.
-The page enables the effect, controls its idle delay and maximum backlight
-reduction, and launches the panel calibration UI. Calibration starts paused in
+The page offers **Off**, **On**, and **After inactivity** modes, controls the
+sampling/idle interval and maximum backlight reduction, and launches the panel
+calibration UI. Calibration starts paused in
 normal mode and only changes the full desktop when the user explicitly selects
 mode B; its preview reduction is capped at 30% for safety.
+
+The installation also provides an optional **LumaSave Status** Plasma widget.
+Add it through Plasma's normal *Add Widgets…* interface. It reports the current
+backlight reduction, logical and effective brightness, and time-weighted daily
+and all-time reduction exposure. These figures intentionally do not claim a
+watt or battery-life saving: panel efficiency is hardware-specific. Pixels at
+the output edges are excluded from analysis so panel indicators cannot feed
+back into the selected reduction.
 
 To remove it:
 
@@ -72,8 +81,10 @@ cannot simulate the physical backlight itself.
 
 ## Safety principles
 
-- Take no screenshots or histograms during active use. Sample exactly once
-  after the configured input-idle delay.
+- In **After inactivity** mode, take no samples during active use and sample
+  only after the configured input-idle delay.
+- In **On** mode, periodically downsample in compositor memory, with hysteresis
+  and an interval that backs off when the decision is stable.
 - Respect KWin and PowerDevil idle inhibitors, so video playback, presentations
   and similar keep-awake workloads never activate LumaSave.
 - Reject an apparently idle desktop that is still repainting continuously.

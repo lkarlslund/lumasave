@@ -5,6 +5,7 @@
 #include <KPluginFactory>
 #include <KSharedConfig>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDBusInterface>
 #include <QDir>
 #include <QFormLayout>
@@ -23,17 +24,24 @@ LumaSaveKcm::LumaSaveKcm(QObject *parent, const KPluginMetaData &data)
     : KCModule(parent, data)
 {
     auto *layout = new QVBoxLayout(widget());
-    auto *intro = new QLabel(tr("LumaSave reduces the laptop panel backlight after the desktop becomes idle, then uses KWin to preserve readable contrast."), widget());
+    auto *intro = new QLabel(tr("LumaSave reduces the laptop panel backlight and uses KWin to preserve readable contrast. It can run continuously or only after inactivity."), widget());
     intro->setWordWrap(true);
     layout->addWidget(intro);
 
-    m_enabled = new QCheckBox(tr("Enable content-adaptive display power saving"), widget());
-    layout->addWidget(m_enabled);
     auto *form = new QFormLayout;
+    m_mode = new QComboBox(widget());
+    m_mode->addItem(tr("Off"), QStringLiteral("off"));
+    m_mode->addItem(tr("On"), QStringLiteral("always"));
+    m_mode->addItem(tr("After inactivity"), QStringLiteral("idle"));
+    form->addRow(tr("Mode:"), m_mode);
     m_idleSeconds = new QSpinBox(widget());
     m_idleSeconds->setRange(3, 300);
     m_idleSeconds->setSuffix(tr(" seconds"));
     form->addRow(tr("Activate after input idle:"), m_idleSeconds);
+    m_sampleInterval = new QSpinBox(widget());
+    m_sampleInterval->setRange(5, 300);
+    m_sampleInterval->setSuffix(tr(" seconds"));
+    form->addRow(tr("Active sampling interval:"), m_sampleInterval);
     m_maxReduction = new QSpinBox(widget());
     m_maxReduction->setRange(0, 75);
     m_maxReduction->setSuffix(tr("%"));
@@ -56,10 +64,16 @@ LumaSaveKcm::LumaSaveKcm(QObject *parent, const KPluginMetaData &data)
     layout->addWidget(note);
     layout->addStretch();
 
-    connect(m_enabled, &QCheckBox::toggled, this, &LumaSaveKcm::settingsChanged);
+    connect(m_mode, &QComboBox::currentIndexChanged, this, [this] {
+        const QString mode = m_mode->currentData().toString();
+        m_idleSeconds->setEnabled(mode == QLatin1String("idle"));
+        m_sampleInterval->setEnabled(mode == QLatin1String("always"));
+        settingsChanged();
+    });
     connect(m_batteryOnly, &QCheckBox::toggled, this, &LumaSaveKcm::settingsChanged);
     connect(m_idleSeconds, &QSpinBox::valueChanged, this, &LumaSaveKcm::settingsChanged);
     connect(m_maxReduction, &QSpinBox::valueChanged, this, &LumaSaveKcm::settingsChanged);
+    connect(m_sampleInterval, &QSpinBox::valueChanged, this, &LumaSaveKcm::settingsChanged);
     connect(calibrate, &QPushButton::clicked, this, &LumaSaveKcm::launchCalibration);
     connect(clearCalibration, &QPushButton::clicked, this, &LumaSaveKcm::clearCalibration);
 }
@@ -69,31 +83,36 @@ void LumaSaveKcm::settingsChanged() { setNeedsSave(true); }
 void LumaSaveKcm::load()
 {
     const KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-lumasave"));
-    m_enabled->setChecked(group.readEntry("Enabled", false));
+    QString mode = group.readEntry("OperatingMode", group.readEntry("Enabled", false) ? QStringLiteral("idle") : QStringLiteral("off"));
+    if (mode == QLatin1String("on")) mode = QStringLiteral("idle");
+    m_mode->setCurrentIndex(std::max(0, m_mode->findData(mode)));
     m_idleSeconds->setValue(group.readEntry("IdleSeconds", 15));
     m_maxReduction->setValue(group.readEntry("MaxBacklightReductionPercent", 35));
     m_batteryOnly->setChecked(group.readEntry("BatteryOnly", true));
+    m_sampleInterval->setValue(group.readEntry("SampleIntervalSeconds", 15));
     setNeedsSave(false);
 }
 
 void LumaSaveKcm::save()
 {
-    const bool enabling = m_enabled->isChecked();
+    const QString mode = m_mode->currentData().toString();
+    const bool enabling = mode != QLatin1String("off");
     if (enabling && powerDevilDimmingEnabled()) offerToDisablePowerDevilDimming();
     auto config = KSharedConfig::openConfig(QStringLiteral("kwinrc"));
     KConfigGroup group(config, QStringLiteral("Effect-lumasave"));
-    group.writeEntry("Enabled", m_enabled->isChecked());
-    group.writeEntry("OperatingMode", m_enabled->isChecked() ? QStringLiteral("on") : QStringLiteral("off"));
+    group.writeEntry("Enabled", enabling);
+    group.writeEntry("OperatingMode", mode);
     group.writeEntry("IdleSeconds", m_idleSeconds->value());
     group.writeEntry("MaxBacklightReductionPercent", m_maxReduction->value());
     group.writeEntry("BatteryOnly", m_batteryOnly->isChecked());
+    group.writeEntry("SampleIntervalSeconds", m_sampleInterval->value());
     KConfigGroup plugins(config, QStringLiteral("Plugins"));
-    plugins.writeEntry("lumasaveEnabled", m_enabled->isChecked());
+    plugins.writeEntry("lumasaveEnabled", enabling);
     config->sync();
     QDBusInterface effects(QStringLiteral("org.kde.KWin"), QStringLiteral("/Effects"), QStringLiteral("org.kde.kwin.Effects"));
-    if (m_enabled->isChecked()) effects.call(QStringLiteral("loadEffect"), QStringLiteral("lumasave"));
+    if (enabling) effects.call(QStringLiteral("loadEffect"), QStringLiteral("lumasave"));
     effects.call(QStringLiteral("reconfigureEffect"), QStringLiteral("lumasave"));
-    if (!m_enabled->isChecked()) effects.call(QStringLiteral("unloadEffect"), QStringLiteral("lumasave"));
+    if (!enabling) effects.call(QStringLiteral("unloadEffect"), QStringLiteral("lumasave"));
     setNeedsSave(false);
 }
 
@@ -130,10 +149,11 @@ void LumaSaveKcm::offerToDisablePowerDevilDimming()
 
 void LumaSaveKcm::defaults()
 {
-    m_enabled->setChecked(false);
+    m_mode->setCurrentIndex(0);
     m_idleSeconds->setValue(15);
     m_maxReduction->setValue(35);
     m_batteryOnly->setChecked(true);
+    m_sampleInterval->setValue(15);
 }
 
 void LumaSaveKcm::launchCalibration()

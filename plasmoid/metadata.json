@@ -1,0 +1,22 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "8929787+lkarlslund@users.noreply.github.com",
+                "Name": "Lars Karlslund"
+            }
+        ],
+        "BugReportUrl": "https://github.com/lkarlslund/lumasave/issues",
+        "Category": "System Information",
+        "Description": "Shows LumaSave display reduction and long-term reduction exposure",
+        "FormFactors": ["horizontal", "vertical"],
+        "Icon": "brightness-high",
+        "Id": "com.github.lkarlslund.lumasave",
+        "License": "MIT",
+        "Name": "LumaSave Status",
+        "Version": "0.1.0",
+        "Website": "https://github.com/lkarlslund/lumasave"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

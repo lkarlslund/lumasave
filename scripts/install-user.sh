@@ -25,9 +25,13 @@ mkdir -p "$HOME/.local/share/lumasave"
     printf 'source=%s\n' "$(git -C "$project_dir" describe --always --dirty 2>/dev/null || printf release-tarball)"
 } >"$HOME/.local/share/lumasave/build-info"
 
-kwriteconfig6 --file kwinrc --group Plugins --key lumasaveEnabled false
-kwriteconfig6 --file kwinrc --group Effect-lumasave --key Enabled false
-kwriteconfig6 --file kwinrc --group Effect-lumasave --key OperatingMode off
+existing_mode=$(kreadconfig6 --file kwinrc --group Effect-lumasave --key OperatingMode --default __lumasave_missing__)
+if [ "$existing_mode" = __lumasave_missing__ ]; then
+    kwriteconfig6 --file kwinrc --group Plugins --key lumasaveEnabled false
+    kwriteconfig6 --file kwinrc --group Effect-lumasave --key Enabled false
+    kwriteconfig6 --file kwinrc --group Effect-lumasave --key OperatingMode off
+fi
 
-echo "LumaSave installed disabled for this user. Log out and back in once so KWin discovers it."
+echo "LumaSave installed for this user without changing its current mode."
+echo "Log out and back in after the first install or after replacing the loaded KWin plugin."
 echo "After Plasma/KWin upgrades, run ~/.local/bin/lumasave-check and rebuild if requested."

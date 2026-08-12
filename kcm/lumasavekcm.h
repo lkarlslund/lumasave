@@ -4,6 +4,7 @@
 #include <KCModule>
 
 class QCheckBox;
+class QComboBox;
 class QSpinBox;
 
 class LumaSaveKcm final : public KCModule
@@ -20,8 +21,9 @@ private:
     bool powerDevilDimmingEnabled() const;
     void offerToDisablePowerDevilDimming();
     void settingsChanged();
-    QCheckBox *m_enabled;
+    QComboBox *m_mode;
     QCheckBox *m_batteryOnly;
     QSpinBox *m_idleSeconds;
     QSpinBox *m_maxReduction;
+    QSpinBox *m_sampleInterval;
 };
