@@ -30,7 +30,7 @@ for file in "$project_dir"/kwin/metadata.json "$project_dir"/kcm/kcm_lumasave.js
     python -m json.tool "$file" >/dev/null
 done
 desktop-file-validate "$project_dir/kcm/kcm_lumasave.desktop"
-qmllint -I "$build_dir" -I /usr/lib/qt6/qml \
+/usr/lib/qt6/bin/qmllint -I "$build_dir" -I /usr/lib/qt6/qml \
     "$project_dir/plasmoid/contents/ui/main.qml" \
     "$project_dir/tools/calibration/main.qml"
 
