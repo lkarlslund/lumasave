@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/lumasave">
+    <file>shaders/lumasave.frag</file>
+  </qresource>
+</RCC>

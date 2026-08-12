@@ -11,8 +11,25 @@ and the physical brightness device.
 
 ## Status
 
-Experimental. The simulator is usable; live display integration remains off by
-default until its safety and power measurements are validated.
+Experimental. The simulator and native KWin effect build successfully on Plasma
+6.7. The effect remains conservative by default while its visual quality and
+power measurements are validated.
+
+## User-local installation
+
+```sh
+./scripts/install-user.sh
+```
+
+No system files or administrator privileges are needed. Log out and back in
+once after the first installation so KWin inherits the local Qt plugin path.
+Later rebuilds replace the plugin under `~/.local`.
+
+To remove it:
+
+```sh
+./scripts/uninstall-user.sh
+```
 
 ## Simulator
 
@@ -40,6 +57,8 @@ cannot simulate the physical backlight itself.
 - Reject an apparently idle desktop that is still repainting continuously.
 - On resumed input, deactivate immediately without sampling the screen.
 - Never override the user's brightness setting; apply a reversible multiplier.
+- Adjust the physical KWin brightness device directly and silently. Plasma's
+  slider and hotkeys remain the baseline even when changed while active.
 - Restore an uncompensated image before returning the backlight to its baseline.
 - Disable for HDR, color calibration, screen capture and unsupported outputs.
 - Rate-limit changes and use hysteresis to prevent visible pumping.

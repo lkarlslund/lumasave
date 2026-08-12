@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: MIT
+#pragma once
+
+#include "effect/offscreeneffect.h"
+
+#include <QElapsedTimer>
+#include <QPointer>
+#include <memory>
+#include <unordered_set>
+
+namespace KWin
+{
+class GLShader;
+class IdleDetector;
+class BackendOutput;
+
+class LumaSaveEffect final : public OffscreenEffect
+{
+    Q_OBJECT
+public:
+    LumaSaveEffect();
+    ~LumaSaveEffect() override;
+
+    static bool supported();
+    bool isActive() const override;
+    int requestedEffectChainPosition() const override;
+    void reconfigure(ReconfigureFlags flags) override;
+    void paintScreen(const RenderTarget &target, const RenderViewport &viewport, int mask,
+                     const Region &region, LogicalOutput *screen) override;
+
+private:
+    void readConfig();
+    void armIdleDetector();
+    void requestAnalysis();
+    void analyze(const RenderTarget &target, const RenderViewport &viewport, LogicalOutput *screen);
+    void activate(float reduction);
+    void deactivate();
+    void redirectWindow(EffectWindow *window);
+    void forgetWindow(EffectWindow *window);
+    void setBacklightScale(float scale);
+
+    std::unique_ptr<IdleDetector> m_idleDetector;
+    std::unique_ptr<GLShader> m_shader;
+    std::unordered_set<EffectWindow *> m_windows;
+    bool m_enabled = false;
+    bool m_analysisPending = false;
+    bool m_active = false;
+    int m_idleSeconds = 15;
+    int m_maxReductionPercent = 35;
+    QPointer<BackendOutput> m_output;
+    float m_backlightScale = 1.0f;
+};
+}
