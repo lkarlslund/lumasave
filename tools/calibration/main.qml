@@ -162,10 +162,13 @@ ApplicationWindow {
                     }
                 }
             }
-            RowLayout {
-                Button { text: root.alternating ? "Pause alternating" : "Alternate A/B"; onClicked: root.alternating = !root.alternating }
-                Button { text: "Toggle A/B (Space)"; onClicked: root.setMode(root.previewMode === 0 ? 2 : 0) }
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 2
+                Button { Layout.fillWidth: true; text: root.alternating ? "Pause alternating" : "Alternate A/B"; onClicked: root.alternating = !root.alternating }
+                Button { Layout.fillWidth: true; text: "Toggle A/B (Space)"; onClicked: root.setMode(root.previewMode === 0 ? 2 : 0) }
                 Button {
+                    Layout.columnSpan: 2; Layout.fillWidth: true
                     text: pressed ? "Compensation bypassed" : "Hold to bypass compensation"
                     enabled: root.previewMode !== 0
                     onPressed: root.setMode(1)
@@ -174,8 +177,7 @@ ApplicationWindow {
                     ToolTip.visible: hovered
                     ToolTip.text: "Diagnostic preview only. It keeps the same reduced backlight and temporarily removes the shader; it is never saved."
                 }
-                Item { Layout.fillWidth: true }
-                Label { text: calibrationBackend.available ? "Real panel A/B · silent brightness changes" : "Brightness device unavailable"; color: calibrationBackend.available ? "#8fd694" : "#ff8b8b" }
+                Label { Layout.columnSpan: 2; Layout.alignment: Qt.AlignHCenter; text: calibrationBackend.available ? "Real panel A/B · silent brightness changes" : "Brightness device unavailable"; color: calibrationBackend.available ? "#8fd694" : "#ff8b8b" }
             }
         }
 
@@ -185,34 +187,30 @@ ApplicationWindow {
             Layout.minimumWidth: Math.min(260, root.width * 0.30)
             Layout.maximumWidth: 320
             Layout.fillHeight: true
-            ScrollView {
+            ColumnLayout {
                 anchors.fill: parent
-                contentWidth: availableWidth
-                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                ColumnLayout {
-                width: parent.width
-                spacing: 13
-                Label { text: "Calibration controls"; font.pixelSize: 20; font.bold: true }
+                spacing: 4
+                Label { text: "Calibration controls"; font.pixelSize: 18; font.bold: true }
 
                 Label { text: "Perceived brightness  " + Math.round(perceivedBrightness.value) + "%" }
-                Slider { id: perceivedBrightness; from: 80; to: 120; stepSize: 1; value: 100; Layout.fillWidth: true; onMoved: if (root.previewMode === 2) root.setMode(2) }
+                Slider { id: perceivedBrightness; from: 80; to: 120; stepSize: 1; value: 100; Layout.fillWidth: true; Layout.preferredHeight: 28; onMoved: if (root.previewMode === 2) root.setMode(2) }
                 Label { text: "Shadow detail  " + Math.round(shadowDetail.value) + "%" }
-                Slider { id: shadowDetail; from: 0; to: 100; stepSize: 1; value: 50; Layout.fillWidth: true; onMoved: if (root.previewMode === 2) root.setMode(2) }
+                Slider { id: shadowDetail; from: 0; to: 100; stepSize: 1; value: 50; Layout.fillWidth: true; Layout.preferredHeight: 28; onMoved: if (root.previewMode === 2) root.setMode(2) }
                 Label { text: "Highlight protection  " + Math.round(highlightProtection.value) + "%" }
-                Slider { id: highlightProtection; from: 0; to: 100; stepSize: 1; value: 70; Layout.fillWidth: true; onMoved: if (root.previewMode === 2) root.setMode(2) }
+                Slider { id: highlightProtection; from: 0; to: 100; stepSize: 1; value: 70; Layout.fillWidth: true; Layout.preferredHeight: 28; onMoved: if (root.previewMode === 2) root.setMode(2) }
                 Label { text: "Color intensity  " + Math.round(colorIntensity.value) + "%" }
-                Slider { id: colorIntensity; from: 80; to: 120; stepSize: 1; value: 100; Layout.fillWidth: true; onMoved: if (root.previewMode === 2) root.setMode(2) }
+                Slider { id: colorIntensity; from: 80; to: 120; stepSize: 1; value: 100; Layout.fillWidth: true; Layout.preferredHeight: 28; onMoved: if (root.previewMode === 2) root.setMode(2) }
                 Label { text: "Maximum reduction  " + Math.round(maximumReduction.value) + "%" }
                 Slider {
-                    id: maximumReduction; from: 0; to: 30; stepSize: 1; value: 10; Layout.fillWidth: true
+                    id: maximumReduction; from: 0; to: 30; stepSize: 1; value: 10; Layout.fillWidth: true; Layout.preferredHeight: 28
                     onMoved: if (root.previewMode > 0) root.setMode(root.previewMode)
                 }
                 Label { text: "A/B interval  " + (interval.value / 1000).toFixed(1) + " s" }
-                Slider { id: interval; from: 500; to: 3000; stepSize: 100; value: 1500; Layout.fillWidth: true }
-                Item { Layout.preferredHeight: 8 }
+                Slider { id: interval; from: 500; to: 3000; stepSize: 100; value: 1500; Layout.fillWidth: true; Layout.preferredHeight: 28 }
+                Item { Layout.fillHeight: true; Layout.minimumHeight: 2 }
                 Label {
                     Layout.fillWidth: true; wrapMode: Text.WordWrap; color: "#b8b8b8"
-                    text: "Exact black is invariant. Bright highlights may not be fully matchable because lowered backlight removes physical headroom."
+                    text: "Exact black stays black. Bright highlights may not fully match because reduced backlight removes physical headroom."
                 }
                 Button { text: "Reset safe defaults (R)"; Layout.fillWidth: true; onClicked: root.resetDefaults() }
                 RowLayout {
@@ -225,7 +223,6 @@ ApplicationWindow {
                         text: "Save"; highlighted: true; Layout.fillWidth: true
                         onClicked: { root.storeProfile(); root.deliberateClose = true; calibrationBackend.saveAndQuit() }
                     }
-                }
                 }
             }
         }
