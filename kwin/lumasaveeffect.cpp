@@ -21,9 +21,12 @@
 #include <QDir>
 #include <QFile>
 #include <QLoggingCategory>
+#include <QDBusArgument>
 #include <QDBusConnection>
 #include <QDBusInterface>
+#include <QDBusMetaType>
 #include <QDBusReply>
+#include <QDBusVariant>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSettings>
@@ -31,6 +34,38 @@
 #include <algorithm>
 #include <cmath>
 #include <array>
+
+namespace
+{
+struct PowerDevilInhibition {
+    QString what;
+    QString who;
+    QString why;
+    QString mode;
+    uint flags = 0;
+};
+
+using PowerDevilInhibitions = QList<PowerDevilInhibition>;
+
+QDBusArgument &operator<<(QDBusArgument &argument, const PowerDevilInhibition &inhibition)
+{
+    argument.beginStructure();
+    argument << inhibition.what << inhibition.who << inhibition.why << inhibition.mode << inhibition.flags;
+    argument.endStructure();
+    return argument;
+}
+
+const QDBusArgument &operator>>(const QDBusArgument &argument, PowerDevilInhibition &inhibition)
+{
+    argument.beginStructure();
+    argument >> inhibition.what >> inhibition.who >> inhibition.why >> inhibition.mode >> inhibition.flags;
+    argument.endStructure();
+    return argument;
+}
+}
+
+Q_DECLARE_METATYPE(PowerDevilInhibition)
+Q_DECLARE_METATYPE(PowerDevilInhibitions)
 
 namespace KWin
 {
@@ -43,6 +78,8 @@ static constexpr int transitionDurationMs = 900;
 
 LumaSaveEffect::LumaSaveEffect()
 {
+    qDBusRegisterMetaType<PowerDevilInhibition>();
+    qDBusRegisterMetaType<PowerDevilInhibitions>();
     m_shader = ShaderManager::instance()->generateShaderFromFile(
         ShaderTrait::MapTexture, QString(), QStringLiteral(":/lumasave/shaders/lumasave.frag"));
     connect(effects, &EffectsHandler::windowAdded, this, &LumaSaveEffect::redirectWindow);
@@ -654,7 +691,47 @@ bool LumaSaveEffect::screenChangeInhibited() const
                           QStringLiteral("/org/kde/Solid/PowerManagement/PolicyAgent"),
                           QStringLiteral("org.kde.Solid.PowerManagement.PolicyAgent"));
     const QDBusReply<bool> reply = policy.call(QStringLiteral("HasInhibition"), uint(4));
-    return reply.isValid() && reply.value();
+    if (!reply.isValid() || !reply.value()) {
+        return false;
+    }
+
+    // The battery applet's manual "prevent sleep and screen locking" switch
+    // creates a paired sleep+idle inhibition from plasmashell. It should not
+    // disable LumaSave: the user asked to prevent suspend, not display power
+    // saving. Read PowerDevil's detailed list so all other idle/display
+    // inhibitors (video playback, presentations, etc.) still suspend LumaSave.
+    QDBusInterface properties(QStringLiteral("org.kde.Solid.PowerManagement"),
+                              QStringLiteral("/org/kde/Solid/PowerManagement/PolicyAgent"),
+                              QStringLiteral("org.freedesktop.DBus.Properties"));
+    const QDBusReply<QDBusVariant> activeReply = properties.call(
+        QStringLiteral("Get"),
+        QStringLiteral("org.kde.Solid.PowerManagement.PolicyAgent"),
+        QStringLiteral("ActiveInhibitions"));
+    if (!activeReply.isValid()) {
+        return true;
+    }
+    const PowerDevilInhibitions inhibitions = qdbus_cast<PowerDevilInhibitions>(activeReply.value().variant());
+    if (inhibitions.isEmpty()) {
+        return true;
+    }
+
+    for (const PowerDevilInhibition &inhibition : inhibitions) {
+        if (inhibition.what != QLatin1String("idle")) {
+            continue;
+        }
+        const bool pairedPlasmaManualInhibition = inhibition.who == QLatin1String("org.kde.plasmashell")
+            && std::ranges::any_of(inhibitions, [&inhibition](const PowerDevilInhibition &candidate) {
+                   return candidate.what == QLatin1String("sleep")
+                       && candidate.who == inhibition.who
+                       && candidate.why == inhibition.why
+                       && candidate.mode == inhibition.mode
+                       && candidate.flags == inhibition.flags;
+               });
+        if (!pairedPlasmaManualInhibition) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool LumaSaveEffect::outputIsHdr(BackendOutput *output) const
