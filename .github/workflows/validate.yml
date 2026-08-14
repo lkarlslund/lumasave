@@ -35,8 +35,7 @@ jobs:
       - name: Build KWin-versioned Arch package
         shell: bash
         run: |
-          git archive --format=tar.gz --prefix=lumasave/ -o packaging/arch/lumasave-src.tar.gz HEAD
-          cd packaging/arch
+          git archive --format=tar.gz --prefix=lumasave/ -o lumasave-src.tar.gz HEAD
           cp PKGBUILD PKGBUILD.ci
           sed -i 's|source=(.*|source=("lumasave::file://'"$PWD"'/lumasave-src.tar.gz")|' PKGBUILD
           useradd -m builder
@@ -51,8 +50,92 @@ jobs:
           name: lumasave-arch-${{ github.sha }}
           path: artifacts/
           retention-days: 14
+
+  rpm:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: fedora-44
+            container: fedora:44
+          - distro: opensuse-tumbleweed
+            container: opensuse/tumbleweed:latest
+    container: ${{ matrix.container }}
+    steps:
+      - name: Install Fedora build dependencies
+        if: matrix.distro == 'fedora-44'
+        run: >-
+          dnf install -y git tar gzip rpm-build cmake gcc-c++ cargo rust
+          extra-cmake-modules kf6-kcmutils-devel kwin kwin-devel
+          libkscreen-devel qt6-qtbase-devel qt6-qtdeclarative-devel
+          libdrm-devel libepoxy-devel wayland-devel wayland-protocols-devel
+          vulkan-headers
+      - name: Install openSUSE build dependencies
+        if: matrix.distro == 'opensuse-tumbleweed'
+        run: >-
+          zypper --non-interactive install git tar gzip rpm-build cmake
+          gcc-c++ cargo rust kf6-extra-cmake-modules kf6-kcmutils-devel
+          kf6-kwindowsystem-devel
+          kwin6 kwin6-devel libkscreen6-devel qt6-base-devel
+          qt6-declarative-devel libdrm-devel libepoxy-devel wayland-devel
+          wayland-protocols-devel vulkan-headers
+      - uses: actions/checkout@v4
+      - name: Build KWin-versioned RPM
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          mkdir -p "$HOME/rpmbuild/SOURCES" artifacts
+          git archive --format=tar.gz --prefix=lumasave/ -o "$HOME/rpmbuild/SOURCES/lumasave.tar.gz" HEAD
+          rpmbuild -bb --define "_topdir $HOME/rpmbuild" packaging/rpm/lumasave.spec
+          find "$HOME/rpmbuild/RPMS" -type f -name '*.rpm' -exec mv -t artifacts {} +
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lumasave-${{ matrix.distro }}-${{ github.sha }}
+          path: artifacts/
+          retention-days: 14
+
+  deb:
+    runs-on: ubuntu-latest
+    container: ubuntu:26.04
+    steps:
+      - name: Install Ubuntu/Kubuntu build dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: >-
+          apt-get update && apt-get install -y git build-essential
+          devscripts debhelper cmake cargo rustc extra-cmake-modules
+          kwin-dev libkscreen-dev libkf6kcmutils-dev qt6-base-dev
+          qt6-declarative-dev libdrm-dev libwayland-dev wayland-protocols
+          libvulkan-dev pkg-config
+      - uses: actions/checkout@v4
+      - name: Build KWin-versioned Ubuntu/Kubuntu package
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          dpkg-buildpackage --build=binary --no-sign
+          mkdir artifacts
+          mv ../lumasave_*_amd64.deb artifacts/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lumasave-ubuntu-26.04-${{ github.sha }}
+          path: artifacts/
+          retention-days: 14
+
+  nightly:
+    needs: [arch, rpm, deb]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: lumasave-*-${{ github.sha }}
+          path: artifacts
+          merge-multiple: true
       - name: Decide whether nightly may be published
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
         id: throttle
         shell: bash
         env:

@@ -2,6 +2,11 @@
 /build/
 /build-kwin/
 /build-*/
+/debian/.cargo/
+/debian/.debhelper/
+/debian/lumasave/
+/debian/files
+/debian/*.substvars
 *.png
 !docs/*.png
 .idea/

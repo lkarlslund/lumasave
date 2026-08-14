@@ -5,7 +5,7 @@ requests are welcome.
 
 ## Build and validate
 
-On current Arch Linux with Plasma 6.7 development packages installed:
+With Plasma 6.6 or newer development packages installed:
 
 ```sh
 cargo test --workspace --locked

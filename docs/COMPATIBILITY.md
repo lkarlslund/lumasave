@@ -4,10 +4,10 @@
 
 The first alpha is validated on one laptop: the maintainer's current internal
 LCD panel, running current Arch Linux/CachyOS packages, KDE Plasma 6.7,
-KWin 6.7, and a Wayland session. Other panels and distributions are unvalidated.
+KWin 6.7, and a Wayland session. The project is compile-tested with KWin 6.6
+and newer; other panels and distributions are unvalidated.
 
-The Arch package pins the KWin upstream version it was built against while
-allowing distribution packaging revisions of that same version.
+Distribution packages pin the KWin version they were built against.
 Rootless installations record that version; `lumasave-check` detects upgrades
 that require a rebuild.
 

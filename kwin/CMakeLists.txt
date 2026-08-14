@@ -15,7 +15,7 @@ include(KDECMakeSettings)
 find_package(Qt6 6.7 REQUIRED COMPONENTS Core Gui Quick Widgets)
 find_package(KF6 6.0 REQUIRED COMPONENTS CoreAddons Config KCMUtils)
 find_package(KF6Screen 6.0 REQUIRED)
-find_package(KWin 6.7 REQUIRED)
+find_package(KWin 6.6 REQUIRED)
 find_package(Qt6 6.7 REQUIRED COMPONENTS DBus)
 
 qt_add_qml_module(lumasaveqml

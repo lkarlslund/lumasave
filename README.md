@@ -68,7 +68,7 @@ power curves; measuring actual battery energy requires hardware-specific data.
 
 ## Install for one user
 
-LumaSave currently targets KDE Plasma 6.7 on Wayland. It is experimental and
+LumaSave currently targets KDE Plasma 6.6 and newer on Wayland. It is experimental and
 the alpha hardware gate currently covers only the maintainer's laptop. Read the
 [compatibility and safety notes](docs/COMPATIBILITY.md) before enabling it.
 
@@ -98,16 +98,17 @@ To remove LumaSave:
 ./scripts/uninstall-user.sh
 ```
 
-## Arch Linux
+## Distribution packages
 
-An Arch [`PKGBUILD`](packaging/arch/PKGBUILD) is included. It builds LumaSave
-against the KWin version installed on the target system and packages the effect,
-System Settings module, calibration tool, and Plasma widget together.
+GitHub Actions builds packages for Arch Linux, Fedora, openSUSE Tumbleweed, and
+Ubuntu/Kubuntu 26.04. An Arch [`PKGBUILD`](PKGBUILD), Debian packaging, and an
+RPM spec are included. Each package is tied to the KWin version used to build it
+because native KWin plug-ins do not have a stable cross-version ABI.
 
 ## Project status
 
 LumaSave is experimental software. The native effect currently targets KDE
-Plasma 6.7, an internal SDR LCD panel, and a Wayland session. HDR, unsupported
+Plasma 6.6 and newer, an internal SDR LCD panel, and a Wayland session. HDR, unsupported
 outputs, screenshots, calibration, and relevant power-management inhibitors are
 handled conservatively.
 
