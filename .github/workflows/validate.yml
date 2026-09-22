@@ -1,11 +1,15 @@
 name: Validate and package
 
 on:
-  push:
-  pull_request:
-  workflow_dispatch:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "17 0,12 * * *"
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: Rebuild even when the nightly release already points at HEAD
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -15,7 +19,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  gate:
+    name: Check for unreleased commits
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.gate.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - id: gate
+        name: Compare HEAD with the nightly release
+        shell: bash
+        env:
+          FORCE_REBUILD: ${{ github.event_name == 'workflow_dispatch' && inputs.force_rebuild }}
+        run: |
+          set -euo pipefail
+          published_commit="$(git ls-remote origin refs/tags/nightly | cut -f1)"
+          if [[ "$FORCE_REBUILD" == "true" || -z "$published_commit" || "$published_commit" != "$GITHUB_SHA" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "HEAD has not been released; validation and packaging will run."
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "The nightly release already points at HEAD; stopping before package jobs."
+          fi
+
   arch:
+    needs: gate
+    if: needs.gate.outputs.changed == 'true'
     runs-on: ubuntu-latest
     container: archlinux:base-devel
     steps:
@@ -49,9 +81,11 @@ jobs:
         with:
           name: lumasave-arch-${{ github.sha }}
           path: artifacts/
-          retention-days: 14
+          retention-days: 7
 
   rpm:
+    needs: gate
+    if: needs.gate.outputs.changed == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -93,9 +127,11 @@ jobs:
         with:
           name: lumasave-${{ matrix.distro }}-${{ github.sha }}
           path: artifacts/
-          retention-days: 14
+          retention-days: 7
 
   deb:
+    needs: gate
+    if: needs.gate.outputs.changed == 'true'
     runs-on: ubuntu-latest
     container: ubuntu:26.04
     steps:
@@ -120,11 +156,11 @@ jobs:
         with:
           name: lumasave-ubuntu-26.04-${{ github.sha }}
           path: artifacts/
-          retention-days: 14
+          retention-days: 7
 
   nightly:
-    needs: [arch, rpm, deb]
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    needs: [gate, arch, rpm, deb]
+    if: needs.gate.outputs.changed == 'true' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
