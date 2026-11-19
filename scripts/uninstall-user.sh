@@ -6,6 +6,11 @@ kwriteconfig6 --file kwinrc --group Effect-lumasave --key Enabled false
 kwriteconfig6 --file kwinrc --group Effect-lumasave --key OperatingMode off
 kwriteconfig6 --file kwinrc --group Plugins --key lumasaveEnabled false
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect lumasave 2>/dev/null || true
+systemctl --user disable --now lumasave-rebuild.path lumasave-rebuild.service 2>/dev/null || true
+rm -f "$HOME/.local/share/systemd/user/lumasave-rebuild.path"
+rm -f "$HOME/.local/share/systemd/user/lumasave-rebuild.service"
+systemctl --user daemon-reload 2>/dev/null || true
+rm -f "$HOME/.local/bin/lumasave-autorebuild"
 rm -f "$HOME/.local/lib/qt6/plugins/kwin/effects/plugins/lumasave.so"
 rm -f "$HOME/.local/lib/qt6/plugins/plasma/kcms/systemsettings/kcm_lumasave.so"
 rm -f "$HOME/.local/bin/lumasave-calibrate"

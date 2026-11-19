@@ -1,0 +1,58 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Rebuild a rootless LumaSave install when KWin changes. KWin only loads
+# effects built for its exact version, so every KWin update, including patch
+# releases, needs a rebuild. Run by lumasave-rebuild.service at login and
+# after the installed KWin headers change.
+set -eu
+
+build_info="$HOME/.local/share/lumasave/build-info"
+log="${XDG_STATE_HOME:-$HOME/.local/state}/lumasave/rebuild.log"
+
+notify() {
+    command -v notify-send >/dev/null 2>&1 &&
+        notify-send --app-name=LumaSave --icon=video-display "$1" "$2" || true
+}
+
+[ -f "$build_info" ] || { echo "No LumaSave build-info; nothing to do."; exit 0; }
+source_dir=$(sed -n 's/^source_dir=//p' "$build_info")
+built_kwin=$(sed -n 's/^kwin=//p' "$build_info")
+
+# Let a running package transaction finish so the build sees a consistent
+# system rather than one with only some Plasma/Qt packages replaced.
+waited=0
+while [ -e /var/lib/pacman/db.lck ] && [ "$waited" -lt 1800 ]; do
+    sleep 5
+    waited=$((waited + 5))
+done
+
+current_kwin=$(kwin_wayland --version 2>/dev/null | head -n 1 || true)
+if [ -z "$current_kwin" ] || [ "$current_kwin" = "$built_kwin" ]; then
+    echo "LumaSave already matches ${current_kwin:-the installed KWin}."
+else
+    if [ -z "$source_dir" ] || [ ! -x "$source_dir/scripts/install-user.sh" ]; then
+        notify "LumaSave needs a rebuild" \
+            "KWin is now $current_kwin, but the LumaSave source checkout was not found. Run scripts/install-user.sh from it."
+        exit 1
+    fi
+
+    mkdir -p "$(dirname "$log")"
+    echo "Rebuilding LumaSave: $built_kwin -> $current_kwin"
+    if ! nice -n 10 "$source_dir/scripts/install-user.sh" >"$log" 2>&1; then
+        tail -n 20 "$log"
+        notify "LumaSave rebuild failed" \
+            "KWin $current_kwin may have changed its effect API. Details: $log"
+        exit 1
+    fi
+    echo "LumaSave rebuilt for $current_kwin."
+fi
+
+# Load the effect into a session whose KWin matches the new build. A KWin
+# that is still running the previous version keeps its loaded copy, and
+# picks up the new build at the next login.
+enabled=$(kreadconfig6 --file kwinrc --group Plugins --key lumasaveEnabled --default false)
+if [ "$enabled" = true ] &&
+    [ "$(qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.isEffectLoaded lumasave 2>/dev/null)" = false ]; then
+    qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect lumasave >/dev/null 2>&1 || true
+fi

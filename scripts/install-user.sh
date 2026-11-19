@@ -29,7 +29,20 @@ mkdir -p "$HOME/.local/share/lumasave"
 {
     printf 'kwin=%s\n' "$(kwin_wayland --version 2>/dev/null | head -n 1 || printf unknown)"
     printf 'source=%s\n' "$(git -C "$project_dir" describe --always --dirty 2>/dev/null || printf release-tarball)"
+    printf 'source_dir=%s\n' "$project_dir"
 } >"$HOME/.local/share/lumasave/build-info"
+
+# KWin only loads effects built for its exact version, so rebuild this
+# rootless install automatically at login and whenever KWin is upgraded.
+install -Dm755 "$project_dir/scripts/lumasave-autorebuild" "$HOME/.local/bin/lumasave-autorebuild"
+unit_dir="$HOME/.local/share/systemd/user"
+mkdir -p "$unit_dir"
+install -m644 "$project_dir/config/systemd/lumasave-rebuild.service" \
+    "$project_dir/config/systemd/lumasave-rebuild.path" "$unit_dir/"
+if systemctl --user daemon-reload 2>/dev/null; then
+    systemctl --user enable lumasave-rebuild.service >/dev/null 2>&1 || true
+    systemctl --user enable --now lumasave-rebuild.path >/dev/null 2>&1 || true
+fi
 
 existing_mode=$(kreadconfig6 --file kwinrc --group Effect-lumasave --key OperatingMode --default __lumasave_missing__)
 if [ "$existing_mode" = __lumasave_missing__ ]; then
@@ -40,4 +53,4 @@ fi
 
 echo "LumaSave installed for this user without changing its current mode."
 echo "Log out and back in after the first install or after replacing the loaded KWin plugin."
-echo "After Plasma/KWin upgrades, run ~/.local/bin/lumasave-check and rebuild if requested."
+echo "KWin upgrades trigger an automatic rebuild; failures are reported as notifications."

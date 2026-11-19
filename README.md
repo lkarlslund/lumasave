@@ -84,13 +84,16 @@ Monitor → LumaSave**. Add **LumaSave Status** through Plasma's normal **Add
 Widgets…** interface if you want panel controls and statistics.
 
 LumaSave builds against the installed KWin because native KWin plug-ins do not
-have a stable cross-version ABI. After upgrading Plasma/KWin, run:
+have a stable cross-version ABI: KWin refuses any effect built for a different
+version, even a patch release. The installer therefore enables a user service
+that rebuilds LumaSave from this checkout whenever KWin is upgraded, and again
+at login if the versions differ. Keep the checkout where it is. If a rebuild
+fails, for example because a new KWin changed its effect API, a notification
+points to `~/.local/state/lumasave/rebuild.log`. To check the install by hand:
 
 ```sh
 ~/.local/bin/lumasave-check
 ```
-
-If it reports a mismatch, rerun `./install.sh` and log in again.
 
 To remove LumaSave:
 

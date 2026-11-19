@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for KWin upgrades that require rebuilding LumaSave
+
+[Path]
+PathChanged=/usr/include/kwin/config-kwin.h
+Unit=lumasave-rebuild.service
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Rebuild LumaSave when KWin changes
+After=plasma-kwin_wayland.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/lumasave-autorebuild
+TimeoutStartSec=45min
+
+[Install]
+WantedBy=plasma-workspace.target

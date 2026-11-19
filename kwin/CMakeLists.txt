@@ -49,6 +49,11 @@ add_custom_target(lumasave_rust_core DEPENDS ${LUMASAVE_RUST_LIB})
 kcoreaddons_add_plugin(lumasave INSTALL_NAMESPACE "kwin/effects/plugins"
     SOURCES main.cpp lumasaveeffect.cpp resources.qrc)
 target_link_libraries(lumasave PRIVATE KWin::kwin KF6::ConfigCore)
+# KWin only loads effects whose plugin IID names its exact version, and moc
+# bakes that IID into main.moc. AUTOMOC does not notice the system KWin header
+# changing, so tie the version to the target's definitions: autogen reruns moc
+# whenever they change, and CMake reconfigures when KWin's package files do.
+target_compile_definitions(lumasave PRIVATE LUMASAVE_KWIN_VERSION="${KWin_VERSION}")
 # KWin 6.8 made paintScreen() report whether painting succeeded.
 if(KWin_VERSION VERSION_GREATER_EQUAL 6.8)
     target_compile_definitions(lumasave PRIVATE LUMASAVE_PAINT_RESULT=1)

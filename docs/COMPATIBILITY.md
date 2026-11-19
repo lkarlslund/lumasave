@@ -8,8 +8,9 @@ KWin 6.7, and a Wayland session. The project is compile-tested with KWin 6.6
 and newer; other panels and distributions are unvalidated.
 
 Distribution packages pin the KWin version they were built against.
-Rootless installations record that version; `lumasave-check` detects upgrades
-that require a rebuild.
+Rootless installations record that version and rebuild automatically through
+the `lumasave-rebuild` user service when KWin changes; `lumasave-check` reports
+any remaining mismatch.
 
 ## HDR
 
