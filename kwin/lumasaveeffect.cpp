@@ -254,15 +254,25 @@ void LumaSaveEffect::requestAnalysis()
     effects->addRepaintFull();
 }
 
+#ifdef LUMASAVE_PAINT_RESULT
+bool LumaSaveEffect::paintScreen(const RenderTarget &target, const RenderViewport &viewport,
+                                 int mask, const Region &region, LogicalOutput *screen)
+{
+    if (!effects->paintScreen(target, viewport, mask, region, screen)) return false;
+#else
 void LumaSaveEffect::paintScreen(const RenderTarget &target, const RenderViewport &viewport,
                                  int mask, const Region &region, LogicalOutput *screen)
 {
     effects->paintScreen(target, viewport, mask, region, screen);
+#endif
     if (m_analysisPending && screen && target.framebuffer()) {
         qInfo() << "LumaSave analyzing idle frame";
         m_analysisPending = false;
         analyze(target, viewport, screen);
     }
+#ifdef LUMASAVE_PAINT_RESULT
+    return true;
+#endif
 }
 
 void LumaSaveEffect::analyze(const RenderTarget &target, const RenderViewport &viewport, LogicalOutput *screen)

@@ -32,8 +32,13 @@ public:
     bool isActive() const override;
     int requestedEffectChainPosition() const override;
     void reconfigure(ReconfigureFlags flags) override;
+#ifdef LUMASAVE_PAINT_RESULT
+    bool paintScreen(const RenderTarget &target, const RenderViewport &viewport, int mask,
+                     const Region &region, LogicalOutput *screen) override;
+#else
     void paintScreen(const RenderTarget &target, const RenderViewport &viewport, int mask,
                      const Region &region, LogicalOutput *screen) override;
+#endif
     QString operatingMode() const { return m_operatingMode; }
     QString runtimeState() const;
     int currentReductionPercent() const;
