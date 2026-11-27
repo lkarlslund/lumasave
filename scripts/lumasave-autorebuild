@@ -28,7 +28,18 @@ while [ -e /var/lib/pacman/db.lck ] && [ "$waited" -lt 1800 ]; do
 done
 
 current_kwin=$(kwin_wayland --version 2>/dev/null | head -n 1 || true)
-if [ -z "$current_kwin" ] || [ "$current_kwin" = "$built_kwin" ]; then
+
+# Trust the installed plugin, not build-info: an incremental build can record
+# the new KWin while the plugin still carries the old KWin's version tag.
+plugin="$HOME/.local/lib/qt6/plugins/kwin/effects/plugins/lumasave.so"
+plugin_version=$(sed -n 's/^#define KWIN_PLUGIN_VERSION_STRING "\(.*\)"$/\1/p' /usr/include/kwin/config-kwin.h 2>/dev/null || true)
+plugin_ok=true
+if [ -n "$plugin_version" ] && [ -f "$plugin" ] &&
+    ! grep -qaF "EffectPluginFactory$plugin_version" "$plugin"; then
+    plugin_ok=false
+fi
+
+if [ -z "$current_kwin" ] || { [ "$current_kwin" = "$built_kwin" ] && [ "$plugin_ok" = true ]; }; then
     echo "LumaSave already matches ${current_kwin:-the installed KWin}."
 else
     if [ -z "$source_dir" ] || [ ! -x "$source_dir/scripts/install-user.sh" ]; then

@@ -9,7 +9,19 @@ cmake -S "$project_dir/kwin" -B "$build_dir" \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_INSTALL_PREFIX="$HOME/.local" \
     -DKDE_INSTALL_PLUGINDIR=lib/qt6/plugins
-cmake --build "$build_dir" --parallel
+# Build from clean. Pacman keeps the package build date as the mtime of KWin's
+# headers, so after a KWin upgrade they can look older than the generated
+# moc output, and an incremental build then keeps the previous KWin's plugin
+# version tag. KWin refuses to load such a plugin.
+cmake --build "$build_dir" --parallel --clean-first
+
+kwin_version=$(sed -n 's/^#define KWIN_PLUGIN_VERSION_STRING "\(.*\)"$/\1/p' /usr/include/kwin/config-kwin.h 2>/dev/null || true)
+if [ -n "$kwin_version" ] &&
+    ! grep -qaF "EffectPluginFactory$kwin_version" "$build_dir/bin/kwin/effects/plugins/lumasave.so"; then
+    echo "Built effect does not target KWin $kwin_version; refusing to install it." >&2
+    exit 1
+fi
+
 cmake --install "$build_dir"
 
 # Remove helper scripts used by pre-alpha widget revisions. The current widget
