@@ -254,15 +254,30 @@ void LumaSaveEffect::requestAnalysis()
     effects->addRepaintFull();
 }
 
+void LumaSaveEffect::uploadUniforms()
+{
+    if (!m_uniformsDirty || !m_shader) return;
+    m_uniformsDirty = false;
+    ShaderBinder binder(m_shader.get());
+    m_shader->setUniform("backlightScale", m_pendingUniforms.scale);
+    m_shader->setUniform("blackThreshold", 0.01f);
+    m_shader->setUniform("perceivedBrightness", m_pendingUniforms.perceived);
+    m_shader->setUniform("shadowDetail", m_pendingUniforms.shadow);
+    m_shader->setUniform("highlightProtection", m_pendingUniforms.highlight);
+    m_shader->setUniform("colorIntensity", m_pendingUniforms.colorIntensity);
+}
+
 #ifdef LUMASAVE_PAINT_RESULT
 bool LumaSaveEffect::paintScreen(const RenderTarget &target, const RenderViewport &viewport,
                                  int mask, const Region &region, LogicalOutput *screen)
 {
+    uploadUniforms();
     if (!effects->paintScreen(target, viewport, mask, region, screen)) return false;
 #else
 void LumaSaveEffect::paintScreen(const RenderTarget &target, const RenderViewport &viewport,
                                  int mask, const Region &region, LogicalOutput *screen)
 {
+    uploadUniforms();
     effects->paintScreen(target, viewport, mask, region, screen);
 #endif
     if (m_analysisPending && screen && target.framebuffer()) {
@@ -448,15 +463,10 @@ void LumaSaveEffect::applyReduction(float reduction)
     const float scale = 1.0f - m_currentReduction;
     float perceived, shadow, highlight, colorIntensity;
     calibrationParameters(perceived, shadow, highlight, colorIntensity);
-    {
-        ShaderBinder binder(m_shader.get());
-        m_shader->setUniform("backlightScale", scale);
-        m_shader->setUniform("blackThreshold", 0.01f);
-        m_shader->setUniform("perceivedBrightness", perceived);
-        m_shader->setUniform("shadowDetail", shadow);
-        m_shader->setUniform("highlightProtection", highlight);
-        m_shader->setUniform("colorIntensity", colorIntensity);
-    }
+    // Called from timers and D-Bus as well as during painting, when no GL
+    // context may be current. Uniforms are uploaded in paintScreen instead.
+    m_pendingUniforms = {scale, perceived, shadow, highlight, colorIntensity};
+    m_uniformsDirty = true;
     m_backlightScale = scale;
     setBacklightScale(scale);
     effects->addRepaintFull();

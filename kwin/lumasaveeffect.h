@@ -58,6 +58,7 @@ private:
     void transitionTo(float reduction);
     void advanceTransition();
     void applyReduction(float reduction);
+    void uploadUniforms();
     float uncompensatedLuminance(float displayedLuminance) const;
     void calibrationParameters(float &perceived, float &shadow, float &highlight, float &colorIntensity) const;
     void deactivate();
@@ -116,6 +117,14 @@ private:
     double m_persistedActiveSeconds = 0.0;
     double m_persistedReductionSeconds = 0.0;
     float m_currentReduction = 0.0f;
+    struct {
+        float scale = 1.0f;
+        float perceived = 1.0f;
+        float shadow = 0.5f;
+        float highlight = 0.7f;
+        float colorIntensity = 1.0f;
+    } m_pendingUniforms;
+    bool m_uniformsDirty = false;
     float m_transitionStartReduction = 0.0f;
     float m_transitionTargetReduction = 0.0f;
     float m_lastChosenReduction = 0.0f;
